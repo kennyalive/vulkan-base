@@ -3,7 +3,6 @@
 #include "copy_to_swapchain.h"
 #include "matrix.h"
 #include "raster_resources.h"
-#include "rt_resources.h"
 #include "utils.h"
 #include "vk.h"
 
@@ -25,30 +24,20 @@ public:
 private:
     void draw_frame();
     void draw_rasterized_image();
-    void draw_raytraced_image();
     void draw_imgui();
     void copy_output_image_to_swapchain();
     void do_imgui();
 
 private:
-    struct UI_Result {
-        bool raytracing_toggled;
-    };
-
     using Clock = std::chrono::high_resolution_clock;
     using Time  = std::chrono::time_point<Clock>;
 
     bool                        show_ui                 = true;
     bool                        vsync                   = true;
     bool                        animate                 = false;
-    bool                        raytracing              = false;
-    bool                        show_texture_lod        = false;
-    bool                        spp4                    = false;
 
     Time                        last_frame_time;
     double                      sim_time;
-
-    UI_Result                   ui_result;
 
     VkRenderPass                ui_render_pass;
     VkFramebuffer               ui_framebuffer;
@@ -62,12 +51,11 @@ private:
     Vk_Image                    texture;
     VkSampler                   sampler;
 
-    Vector3                      camera_pos = Vector3(0, 0.5, 3.0);
+    Vector3                     camera_pos = Vector3(0, 0.5, 3.0);
     Matrix3x4                   model_transform;
     Matrix3x4                   view_transform;
 
     Rasterization_Resources     raster;
-    Raytracing_Resources        rt;
 
     GPU_Time_Keeper             time_keeper;
     struct {

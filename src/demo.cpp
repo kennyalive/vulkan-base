@@ -20,10 +20,6 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     // Device properties.
     {
         VkPhysicalDeviceProperties2 physical_device_properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-        if (vk.raytracing_supported) {
-            rt.properties = VkPhysicalDeviceRayTracingPropertiesNV { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV };
-            physical_device_properties.pNext = &rt.properties;
-        }
         vkGetPhysicalDeviceProperties2(vk.physical_device, &physical_device_properties);
 
         printf("Device: %s\n", physical_device_properties.properties.deviceName);
@@ -32,19 +28,6 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
             VK_VERSION_MINOR(physical_device_properties.properties.apiVersion),
             VK_VERSION_PATCH(physical_device_properties.properties.apiVersion)
         );
-
-        if (vk.raytracing_supported) {
-            printf("\n");
-            printf("VkPhysicalDeviceRayTracingPropertiesNV:\n");
-            printf("  shaderGroupHandleSize = %u\n", rt.properties.shaderGroupHandleSize);
-            printf("  maxRecursionDepth = %u\n", rt.properties.maxRecursionDepth);
-            printf("  maxShaderGroupStride = %u\n", rt.properties.maxShaderGroupStride);
-            printf("  shaderGroupBaseAlignment = %u\n", rt.properties.shaderGroupBaseAlignment);
-            printf("  maxGeometryCount = %" PRIu64 "\n", rt.properties.maxGeometryCount);
-            printf("  maxInstanceCount = %" PRIu64 "\n", rt.properties.maxInstanceCount);
-            printf("  maxTriangleCount = %" PRIu64 "\n", rt.properties.maxTriangleCount);
-            printf("  maxDescriptorSetAccelerationStructures = %u\n", rt.properties.maxDescriptorSetAccelerationStructures);
-        }
     }
 
     // Geometry buffers.
@@ -136,22 +119,6 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     }
 
     raster.create(texture.view, sampler);
-
-    if (vk.raytracing_supported) {
-        VkGeometryTrianglesNV model_triangles { VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV };
-        model_triangles.vertexData    = vertex_buffer.handle;
-        model_triangles.vertexOffset  = 0;
-        model_triangles.vertexCount   = model_vertex_count;
-        model_triangles.vertexStride  = sizeof(Vertex);
-        model_triangles.vertexFormat  = VK_FORMAT_R32G32B32_SFLOAT;
-        model_triangles.indexData     = index_buffer.handle;
-        model_triangles.indexOffset   = 0;
-        model_triangles.indexCount    = model_index_count;
-        model_triangles.indexType     = VK_INDEX_TYPE_UINT32;
-
-        rt.create(model_triangles, texture.view, sampler);
-    }
-
     copy_to_swapchain.create();
     restore_resolution_dependent_resources();
 
@@ -198,11 +165,7 @@ void Vk_Demo::shutdown() {
     vkDestroySampler(vk.device, sampler, nullptr);
     vkDestroyRenderPass(vk.device, ui_render_pass, nullptr);
     release_resolution_dependent_resources();
-
     raster.destroy();
-    if (vk.raytracing_supported)
-        rt.destroy();
-    
     vk_shutdown();
 }
 
@@ -219,15 +182,6 @@ void Vk_Demo::restore_resolution_dependent_resources() {
     {
         output_image = vk_create_image(vk.surface_size.width, vk.surface_size.height, VK_FORMAT_R16G16B16A16_SFLOAT,
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, "output_image");
-
-        if (raytracing) {
-            vk_execute(vk.command_pools[0], vk.queue, [this](VkCommandBuffer command_buffer) {
-                vk_cmd_image_barrier(command_buffer, output_image.handle,
-                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                    0,                                  0,
-                    VK_IMAGE_LAYOUT_UNDEFINED,          VK_IMAGE_LAYOUT_GENERAL);
-            });
-        }
     }
 
     // imgui framebuffer
@@ -244,10 +198,6 @@ void Vk_Demo::restore_resolution_dependent_resources() {
     }
 
     raster.create_framebuffer(output_image.view);
-
-    if (vk.raytracing_supported)
-        rt.update_output_image_descriptor(output_image.view);
-
     copy_to_swapchain.update_resolution_dependent_descriptors(output_image.view);
     last_frame_time = Clock::now();
 }
@@ -270,10 +220,6 @@ void Vk_Demo::run_frame() {
     camera_to_world_transform.set_column(2, Vector3(view_transform.get_row(2)));
     camera_to_world_transform.set_column(3, camera_pos);
 
-    if (vk.raytracing_supported)
-        rt.update(model_transform, camera_to_world_transform);
-
-    bool old_raytracing = raytracing;
     do_imgui();
     draw_frame();
 }
@@ -283,18 +229,7 @@ void Vk_Demo::draw_frame() {
     time_keeper.next_frame();
     gpu_times.frame->begin();
 
-    if (raytracing && ui_result.raytracing_toggled) {
-        vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            0, VK_ACCESS_SHADER_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-    }
-
-    if (raytracing)
-        draw_raytraced_image();
-    else
-        draw_rasterized_image();
-
+    draw_rasterized_image();
     draw_imgui();
     copy_output_image_to_swapchain();
     gpu_times.frame->end();
@@ -334,58 +269,8 @@ void Vk_Demo::draw_rasterized_image() {
     vkCmdBindIndexBuffer(vk.command_buffer, index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, raster.pipeline_layout, 0, 1, &raster.descriptor_set, 0, nullptr);
     vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, raster.pipeline);
-    uint32_t show_texture_lod_uint = show_texture_lod;
-    vkCmdPushConstants(vk.command_buffer, raster.pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &show_texture_lod_uint);
     vkCmdDrawIndexed(vk.command_buffer, model_index_count, 1, 0, 0, 0);
     vkCmdEndRenderPass(vk.command_buffer);
-}
-
-void Vk_Demo::draw_raytraced_image() {
-    GPU_TIME_SCOPE(gpu_times.draw);
-
-    VkAccelerationStructureInfoNV accel_info { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV };
-    accel_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV;
-    accel_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV;
-    accel_info.instanceCount = 1;
-
-    vkCmdBuildAccelerationStructureNV(vk.command_buffer,
-        &accel_info,
-        rt.instance_buffer, // instanceData
-        1, // instanceOffset
-        VK_FALSE, // update
-        rt.top_level_accel, // dst
-        VK_NULL_HANDLE, // src
-        rt.scratch_buffer,
-        0 // scratchOffset
-    );
-
-    VkMemoryBarrier barrier { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-    barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
-    barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
-
-    vkCmdPipelineBarrier(vk.command_buffer,
-        VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,
-        0, 1, &barrier, 0, nullptr, 0, nullptr);
-
-    vkCmdBindDescriptorSets(vk.command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, rt.pipeline_layout, 0, 1, &rt.descriptor_set, 0, nullptr);
-    vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, rt.pipeline);
-
-    uint32_t push_constants[2] = { spp4, show_texture_lod };
-    vkCmdPushConstants(vk.command_buffer, rt.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, 4, &push_constants[0]);
-    vkCmdPushConstants(vk.command_buffer, rt.pipeline_layout, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV, 4, 4, &push_constants[1]);
-
-    const VkBuffer sbt = rt.shader_binding_table.handle;
-    const uint32_t sbt_slot_size = rt.properties.shaderGroupHandleSize;
-    const uint32_t miss_offset = round_up(sbt_slot_size /* raygen slot*/, rt.properties.shaderGroupBaseAlignment);
-    const uint32_t hit_offset = round_up(miss_offset + sbt_slot_size /* miss slot */, rt.properties.shaderGroupBaseAlignment);
-
-    vkCmdTraceRaysNV(vk.command_buffer,
-        sbt, 0, // raygen shader
-        sbt, miss_offset, sbt_slot_size, // miss shader
-        sbt, hit_offset, sbt_slot_size, // chit shader
-        VK_NULL_HANDLE, 0, 0,
-        vk.surface_size.width, vk.surface_size.height, 1);
 }
 
 void Vk_Demo::draw_imgui() {
@@ -393,17 +278,10 @@ void Vk_Demo::draw_imgui() {
 
     ImGui::Render();
 
-    if (raytracing) {
-        vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
-            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_ACCESS_SHADER_WRITE_BIT,             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_GENERAL,                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    } else {
-        vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            0,                                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    }
+    vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        0,                                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkRenderPassBeginInfo render_pass_begin_info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     render_pass_begin_info.renderPass           = ui_render_pass;
@@ -414,17 +292,10 @@ void Vk_Demo::draw_imgui() {
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), vk.command_buffer);
     vkCmdEndRenderPass(vk.command_buffer);
 
-    if (raytracing) {
-        vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,           VK_ACCESS_SHADER_READ_BIT,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,       VK_IMAGE_LAYOUT_GENERAL);
-    } else {
-        vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,           VK_ACCESS_SHADER_READ_BIT,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    }
+    vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,           VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void Vk_Demo::copy_output_image_to_swapchain() {
@@ -435,13 +306,6 @@ void Vk_Demo::copy_output_image_to_swapchain() {
 
     uint32_t group_count_x = (vk.surface_size.width + group_size_x - 1) / group_size_x;
     uint32_t group_count_y = (vk.surface_size.height + group_size_y - 1) / group_size_y;
-
-    if (raytracing) {
-        vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
-            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_ACCESS_SHADER_WRITE_BIT,             VK_ACCESS_SHADER_READ_BIT,
-            VK_IMAGE_LAYOUT_GENERAL,                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    }
 
     vk_cmd_image_barrier(vk.command_buffer, vk.swapchain_info.images[vk.swapchain_image_index],
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -463,17 +327,9 @@ void Vk_Demo::copy_output_image_to_swapchain() {
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,   VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         VK_ACCESS_SHADER_WRITE_BIT,             0,
         VK_IMAGE_LAYOUT_GENERAL,                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-    if (raytracing) {
-        vk_cmd_image_barrier(vk.command_buffer, output_image.handle,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,
-            VK_ACCESS_SHADER_READ_BIT,              VK_ACCESS_SHADER_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,              VK_IMAGE_LAYOUT_GENERAL);
-    }
 }
 
 void Vk_Demo::do_imgui() {
-    ui_result = UI_Result{};
     ImGuiIO& io = ImGui::GetIO();
 
     ImGui_ImplVulkan_NewFrame();
@@ -519,18 +375,6 @@ void Vk_Demo::do_imgui() {
             ImGui::Spacing();
             ImGui::Checkbox("Vertical sync", &vsync);
             ImGui::Checkbox("Animate", &animate);
-            ImGui::Checkbox("Show texture lod", &show_texture_lod);
-
-            if (!vk.raytracing_supported) {
-                ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-                ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-            }
-            ui_result.raytracing_toggled = ImGui::Checkbox("Raytracing", &raytracing);
-            ImGui::Checkbox("4 rays per pixel", &spp4);
-            if (!vk.raytracing_supported) {
-                ImGui::PopItemFlag();
-                ImGui::PopStyleVar();
-            }
 
             if (ImGui::BeginPopupContextWindow()) {
                 if (ImGui::MenuItem("Custom",       NULL, corner == -1)) corner = -1;

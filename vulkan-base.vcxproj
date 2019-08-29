@@ -73,7 +73,7 @@
     <CustomBuild>
       <Command>$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V --target-env vulkan1.1 -o $(ProjectDir)data\spirv\%(Filename).spv &amp;&amp; $(VULKAN_SDK)\Bin\spirv-opt $(ProjectDir)data\spirv\%(Filename).spv -O --strip-debug -o $(ProjectDir)data\spirv\%(Filename).spv</Command>
       <Outputs>$(ProjectDir)data\spirv\%(Filename).spv</Outputs>
-      <AdditionalInputs>$(ProjectDir)src\shaders\rt_utils.glsl;$(ProjectDir)src\shaders\common.glsl</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)src\shaders\common.glsl</AdditionalInputs>
       <LinkObjects>false</LinkObjects>
       <Message>
       </Message>
@@ -116,7 +116,6 @@
     <ClCompile Include="src\utils.cpp" />
     <ClCompile Include="src\matrix.cpp" />
     <ClCompile Include="src\raster_resources.cpp" />
-    <ClCompile Include="src\rt_resources.cpp" />
     <ClCompile Include="src\vk.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\demo.cpp" />
@@ -155,7 +154,6 @@
     <ClInclude Include="src\utils.h" />
     <ClInclude Include="src\matrix.h" />
     <ClInclude Include="src\raster_resources.h" />
-    <ClInclude Include="src\rt_resources.h" />
     <ClInclude Include="src\vector.h" />
     <ClInclude Include="src\vk.h" />
     <ClInclude Include="src\demo.h" />
@@ -185,20 +183,6 @@
       <FileType>Document</FileType>
     </CustomBuild>
     <None Include="src\shaders\common.glsl" />
-    <CustomBuild Include="src\shaders\rt_mesh.rchit.glsl">
-      <FileType>Document</FileType>
-    </CustomBuild>
-    <CustomBuild Include="src\shaders\rt_mesh.rgen.glsl">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V -o $(ProjectDir)data/spirv/%(Filename).spv</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V -o $(ProjectDir)data/spirv/%(Filename).spv</Command>
-    </CustomBuild>
-    <CustomBuild Include="src\shaders\rt_mesh.rmiss.glsl">
-      <FileType>Document</FileType>
-    </CustomBuild>
-    <None Include="src\shaders\rt_utils.glsl">
-      <FileType>Document</FileType>
-    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -25,7 +25,6 @@
     </ClCompile>
     <ClCompile Include="src\matrix.cpp" />
     <ClCompile Include="src\copy_to_swapchain.cpp" />
-    <ClCompile Include="src\rt_resources.cpp" />
     <ClCompile Include="src\raster_resources.cpp" />
     <ClCompile Include="src\utils.cpp" />
     <ClCompile Include="src\mesh.cpp" />
@@ -98,7 +97,6 @@
     <ClInclude Include="src\matrix.h" />
     <ClInclude Include="src\vector.h" />
     <ClInclude Include="src\copy_to_swapchain.h" />
-    <ClInclude Include="src\rt_resources.h" />
     <ClInclude Include="src\raster_resources.h" />
     <ClInclude Include="src\utils.h" />
     <ClInclude Include="src\mesh.h" />
@@ -155,9 +153,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\rt_utils.glsl">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="src\shaders\common.glsl">
       <Filter>shaders</Filter>
     </None>
@@ -170,15 +165,6 @@
       <Filter>shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="src\shaders\raster_mesh.vert.glsl">
-      <Filter>shaders</Filter>
-    </CustomBuild>
-    <CustomBuild Include="src\shaders\rt_mesh.rchit.glsl">
-      <Filter>shaders</Filter>
-    </CustomBuild>
-    <CustomBuild Include="src\shaders\rt_mesh.rgen.glsl">
-      <Filter>shaders</Filter>
-    </CustomBuild>
-    <CustomBuild Include="src\shaders\rt_mesh.rmiss.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>
   </ItemGroup>

@@ -19,7 +19,6 @@ static const VkDescriptorPoolSize descriptor_pool_sizes[] = {
     {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,              16},
     {VK_DESCRIPTOR_TYPE_SAMPLER,                    16},
     {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,              16},
-    {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV,  16},
 };
 
 constexpr uint32_t max_descriptor_sets = 64;
@@ -245,10 +244,6 @@ static void create_device(GLFWwindow* window) {
             if (!is_extension_supported(required_extension))
                 error("Vulkan: required device extension is not available: " + std::string(required_extension));
         }
-        if (is_extension_supported(VK_NV_RAY_TRACING_EXTENSION_NAME)) {
-            device_extensions.push_back(VK_NV_RAY_TRACING_EXTENSION_NAME);
-            vk.raytracing_supported = true;
-        }
 
         const float priority = 1.0;
         VkDeviceQueueCreateInfo queue_desc { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
@@ -470,9 +465,6 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
     {
         std::vector<VkDescriptorPoolSize> pool_sizes;
         for (size_t i = 0; i < std::size(descriptor_pool_sizes); i++) {
-            if (descriptor_pool_sizes[i].type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV && !vk.raytracing_supported)
-                continue;
-
             pool_sizes.push_back(descriptor_pool_sizes[i]);
         }
         VkDescriptorPoolCreateInfo desc{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
