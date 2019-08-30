@@ -129,6 +129,18 @@
     <ClInclude Include="third-party\glfw\win32_platform.h">
       <Filter>third-party\glfw</Filter>
     </ClInclude>
+    <ClInclude Include="third-party\stb_image.h">
+      <Filter>third-party</Filter>
+    </ClInclude>
+    <ClInclude Include="third-party\tiny_obj_loader.h">
+      <Filter>third-party</Filter>
+    </ClInclude>
+    <ClInclude Include="third-party\vk_enum_string_helper.h">
+      <Filter>third-party</Filter>
+    </ClInclude>
+    <ClInclude Include="third-party\vk_mem_alloc.h">
+      <Filter>third-party</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">

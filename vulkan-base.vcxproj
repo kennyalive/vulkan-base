@@ -169,6 +169,10 @@
     <ClInclude Include="third-party\imgui\imgui_internal.h" />
     <ClInclude Include="third-party\imgui\impl\imgui_impl_glfw.h" />
     <ClInclude Include="third-party\imgui\impl\imgui_impl_vulkan.h" />
+    <ClInclude Include="third-party\stb_image.h" />
+    <ClInclude Include="third-party\tiny_obj_loader.h" />
+    <ClInclude Include="third-party\vk_enum_string_helper.h" />
+    <ClInclude Include="third-party\vk_mem_alloc.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="src\shaders\mesh.frag.glsl">
