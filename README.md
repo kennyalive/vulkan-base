@@ -1,9 +1,8 @@
 # vulkan-base
 
-* Simple vulkan application that renders textured model.
-* __VK_NV_ray_tracing support__. Ray differentials for texture filtering in raytracing mode.
-* The application uses __volk__ and __Vulkan Memory Allocator (VMA)__ libraries.
+* Simple Vulkan application that renders textured model.
+* For basic Vulkan raytracing check this repository: https://github.com/kennyalive/vulkan-raytracing
 
 Prerequisites: VulkanSDK is required to build the solution.
 
-![demo](https://user-images.githubusercontent.com/4964024/48605463-26722a00-e97d-11e8-9548-65de42d50c21.png)
+![vulkan-base](https://user-images.githubusercontent.com/4964024/64047691-c812e280-cb6f-11e9-8f26-76c4ee8860cd.png)
