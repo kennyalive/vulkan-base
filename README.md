@@ -1,6 +1,7 @@
 # vulkan-base
 
 * Simple Vulkan application that renders textured model.
+* The program also demos: push constants, compute shaders, timestamp queries, imgui integration.
 * For basic Vulkan raytracing check this repository: https://github.com/kennyalive/vulkan-raytracing
 
 Prerequisites: VulkanSDK is required to build the solution.
