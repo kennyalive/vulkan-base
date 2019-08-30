@@ -157,7 +157,7 @@ static void create_instance(bool enable_validation_layers) {
 
     if (enable_validation_layers) {
         static const char* layer_names[] = {
-            "VK_LAYER_LUNARG_standard_validation"
+            "VK_LAYER_KHRONOS_validation"
         };
         desc.enabledLayerCount = (uint32_t)std::size(layer_names);
         desc.ppEnabledLayerNames = layer_names;
