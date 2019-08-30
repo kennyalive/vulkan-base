@@ -115,7 +115,6 @@
     <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="src\utils.cpp" />
     <ClCompile Include="src\matrix.cpp" />
-    <ClCompile Include="src\raster_resources.cpp" />
     <ClCompile Include="src\vk.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\demo.cpp" />
@@ -153,7 +152,6 @@
     <ClInclude Include="src\platform.h" />
     <ClInclude Include="src\utils.h" />
     <ClInclude Include="src\matrix.h" />
-    <ClInclude Include="src\raster_resources.h" />
     <ClInclude Include="src\vector.h" />
     <ClInclude Include="src\vk.h" />
     <ClInclude Include="src\demo.h" />
@@ -173,10 +171,10 @@
     <ClInclude Include="third-party\imgui\impl\imgui_impl_vulkan.h" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="src\shaders\raster_mesh.frag.glsl">
+    <CustomBuild Include="src\shaders\mesh.frag.glsl">
       <FileType>Document</FileType>
     </CustomBuild>
-    <CustomBuild Include="src\shaders\raster_mesh.vert.glsl">
+    <CustomBuild Include="src\shaders\mesh.vert.glsl">
       <FileType>Document</FileType>
     </CustomBuild>
     <CustomBuild Include="src\shaders\copy_to_swapchain.comp.glsl">

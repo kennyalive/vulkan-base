@@ -2,7 +2,6 @@
 
 #include "copy_to_swapchain.h"
 #include "matrix.h"
-#include "raster_resources.h"
 #include "utils.h"
 #include "vk.h"
 
@@ -44,6 +43,15 @@ private:
     Vk_Image                    output_image;
     Copy_To_Swapchain           copy_to_swapchain;
 
+    VkDescriptorSetLayout       descriptor_set_layout;
+    VkPipelineLayout            pipeline_layout;
+    VkPipeline                  pipeline;
+    VkDescriptorSet             descriptor_set;
+    VkRenderPass                render_pass;
+    VkFramebuffer               framebuffer;
+    Vk_Buffer                   uniform_buffer;
+    void*                       mapped_uniform_buffer;
+
     Vk_Buffer                   vertex_buffer;
     Vk_Buffer                   index_buffer;
     uint32_t                    model_vertex_count;
@@ -54,8 +62,6 @@ private:
     Vector3                     camera_pos = Vector3(0, 0.5, 3.0);
     Matrix3x4                   model_transform;
     Matrix3x4                   view_transform;
-
-    Rasterization_Resources     raster;
 
     GPU_Time_Keeper             time_keeper;
     struct {

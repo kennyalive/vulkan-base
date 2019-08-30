@@ -25,7 +25,6 @@
     </ClCompile>
     <ClCompile Include="src\matrix.cpp" />
     <ClCompile Include="src\copy_to_swapchain.cpp" />
-    <ClCompile Include="src\raster_resources.cpp" />
     <ClCompile Include="src\utils.cpp" />
     <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="third-party\imgui\impl\imgui_impl_glfw.cpp">
@@ -97,7 +96,6 @@
     <ClInclude Include="src\matrix.h" />
     <ClInclude Include="src\vector.h" />
     <ClInclude Include="src\copy_to_swapchain.h" />
-    <ClInclude Include="src\raster_resources.h" />
     <ClInclude Include="src\utils.h" />
     <ClInclude Include="src\mesh.h" />
     <ClInclude Include="third-party\imgui\impl\imgui_impl_glfw.h">
@@ -161,10 +159,10 @@
     <CustomBuild Include="src\shaders\copy_to_swapchain.comp.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>
-    <CustomBuild Include="src\shaders\raster_mesh.frag.glsl">
+    <CustomBuild Include="src\shaders\mesh.frag.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>
-    <CustomBuild Include="src\shaders\raster_mesh.vert.glsl">
+    <CustomBuild Include="src\shaders\mesh.vert.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>
   </ItemGroup>

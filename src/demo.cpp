@@ -14,6 +14,13 @@
 #include <cinttypes>
 #include <chrono>
 
+namespace {
+struct Uniform_Buffer {
+    Matrix4x4   model_view_proj;
+    Matrix4x4   model_view;
+};
+}
+
 void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     vk_initialize(window, enable_validation_layers);
 
@@ -118,7 +125,127 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         vk_set_debug_name(ui_render_pass, "ui_render_pass");
     }
 
-    raster.create(texture.view, sampler);
+    uniform_buffer = vk_create_host_visible_buffer(static_cast<VkDeviceSize>(sizeof(Uniform_Buffer)),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &mapped_uniform_buffer, "uniform_buffer");
+
+    descriptor_set_layout = Descriptor_Set_Layout()
+        .uniform_buffer (0, VK_SHADER_STAGE_VERTEX_BIT)
+        .sampled_image  (1, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .sampler        (2, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .create         ("set_layout");
+
+    // Pipeline layout.
+    {
+        VkPushConstantRange push_constant_range; // show_texture_lods value
+        push_constant_range.stageFlags  = VK_SHADER_STAGE_FRAGMENT_BIT;
+        push_constant_range.offset      = 0;
+        push_constant_range.size        = 4;
+
+        VkPipelineLayoutCreateInfo create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+        create_info.setLayoutCount          = 1;
+        create_info.pSetLayouts             = &descriptor_set_layout;
+        create_info.pushConstantRangeCount  = 1;
+        create_info.pPushConstantRanges     = &push_constant_range;
+
+        VK_CHECK(vkCreatePipelineLayout(vk.device, &create_info, nullptr, &pipeline_layout));
+        vk_set_debug_name(pipeline_layout, "pipeline_layout");
+    }
+
+    // Render pass.
+    {
+        VkAttachmentDescription attachments[2] = {};
+        attachments[0].format           = VK_FORMAT_R16G16B16A16_SFLOAT;
+        attachments[0].samples          = VK_SAMPLE_COUNT_1_BIT;
+        attachments[0].loadOp           = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[0].storeOp          = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].stencilLoadOp    = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[0].stencilStoreOp   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[0].initialLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachments[0].finalLayout      = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        attachments[1].format           = vk.depth_info.format;
+        attachments[1].samples          = VK_SAMPLE_COUNT_1_BIT;
+        attachments[1].loadOp           = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[1].storeOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].stencilLoadOp    = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[1].stencilStoreOp   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].initialLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        attachments[1].finalLayout      = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentReference color_attachment_ref;
+        color_attachment_ref.attachment = 0;
+        color_attachment_ref.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentReference depth_attachment_ref;
+        depth_attachment_ref.attachment = 1;
+        depth_attachment_ref.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        VkSubpassDescription subpass{};
+        subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount    = 1;
+        subpass.pColorAttachments       = &color_attachment_ref;
+        subpass.pDepthStencilAttachment = &depth_attachment_ref;
+
+        VkRenderPassCreateInfo create_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+        create_info.attachmentCount = (uint32_t)std::size(attachments);
+        create_info.pAttachments = attachments;
+        create_info.subpassCount = 1;
+        create_info.pSubpasses = &subpass;
+
+        VK_CHECK(vkCreateRenderPass(vk.device, &create_info, nullptr, &render_pass));
+        vk_set_debug_name(render_pass, "color_depth_render_pass");
+    }
+
+    // Pipeline.
+    {
+        VkShaderModule vertex_shader = vk_load_spirv("spirv/mesh.vert.spv");
+        VkShaderModule fragment_shader = vk_load_spirv("spirv/mesh.frag.spv");
+
+        Vk_Graphics_Pipeline_State state = get_default_graphics_pipeline_state();
+
+        // VkVertexInputBindingDescription
+        state.vertex_bindings[0].binding = 0;
+        state.vertex_bindings[0].stride = sizeof(Vertex);
+        state.vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        state.vertex_binding_count = 1;
+
+        // VkVertexInputAttributeDescription
+        state.vertex_attributes[0].location = 0; // vertex
+        state.vertex_attributes[0].binding = 0;
+        state.vertex_attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        state.vertex_attributes[0].offset = 0;
+
+        state.vertex_attributes[1].location = 1; // normal
+        state.vertex_attributes[1].binding = 0;
+        state.vertex_attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        state.vertex_attributes[1].offset = 12;
+
+        state.vertex_attributes[2].location = 2; // uv
+        state.vertex_attributes[2].binding = 0;
+        state.vertex_attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
+        state.vertex_attributes[2].offset = 24;
+        state.vertex_attribute_count = 3;
+
+        pipeline = vk_create_graphics_pipeline(state, pipeline_layout, render_pass, vertex_shader, fragment_shader);
+
+        vkDestroyShaderModule(vk.device, vertex_shader, nullptr);
+        vkDestroyShaderModule(vk.device, fragment_shader, nullptr);
+    }
+
+    // Descriptor sets.
+    {
+        VkDescriptorSetAllocateInfo desc { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+        desc.descriptorPool     = vk.descriptor_pool;
+        desc.descriptorSetCount = 1;
+        desc.pSetLayouts        = &descriptor_set_layout;
+        VK_CHECK(vkAllocateDescriptorSets(vk.device, &desc, &descriptor_set));
+
+        Descriptor_Writes(descriptor_set)
+            .uniform_buffer (0, uniform_buffer.handle, 0, sizeof(Uniform_Buffer))
+            .sampled_image  (1, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+            .sampler        (2, sampler);
+    }
+
     copy_to_swapchain.create();
     restore_resolution_dependent_resources();
 
@@ -165,7 +292,12 @@ void Vk_Demo::shutdown() {
     vkDestroySampler(vk.device, sampler, nullptr);
     vkDestroyRenderPass(vk.device, ui_render_pass, nullptr);
     release_resolution_dependent_resources();
-    raster.destroy();
+    uniform_buffer.destroy();
+    vkDestroyDescriptorSetLayout(vk.device, descriptor_set_layout, nullptr);
+    vkDestroyPipelineLayout(vk.device, pipeline_layout, nullptr);
+    vkDestroyPipeline(vk.device, pipeline, nullptr);
+    vkDestroyRenderPass(vk.device, render_pass, nullptr);
+
     vk_shutdown();
 }
 
@@ -173,7 +305,9 @@ void Vk_Demo::release_resolution_dependent_resources() {
     vkDestroyFramebuffer(vk.device, ui_framebuffer, nullptr);
     ui_framebuffer = VK_NULL_HANDLE;
 
-    raster.destroy_framebuffer();
+    vkDestroyFramebuffer(vk.device, framebuffer, nullptr);
+    framebuffer = VK_NULL_HANDLE;
+
     output_image.destroy();
 }
 
@@ -196,8 +330,19 @@ void Vk_Demo::restore_resolution_dependent_resources() {
 
         VK_CHECK(vkCreateFramebuffer(vk.device, &create_info, nullptr, &ui_framebuffer));
     }
+    
+    VkImageView attachments[] = {output_image.view, vk.depth_info.image_view};
+    VkFramebufferCreateInfo create_info { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+    create_info.renderPass      = render_pass;
+    create_info.attachmentCount = (uint32_t)std::size(attachments);
+    create_info.pAttachments    = attachments;
+    create_info.width           = vk.surface_size.width;
+    create_info.height          = vk.surface_size.height;
+    create_info.layers          = 1;
 
-    raster.create_framebuffer(output_image.view);
+    VK_CHECK(vkCreateFramebuffer(vk.device, &create_info, nullptr, &framebuffer));
+    vk_set_debug_name(framebuffer, "color_depth_framebuffer");
+
     copy_to_swapchain.update_resolution_dependent_descriptors(output_image.view);
     last_frame_time = Clock::now();
 }
@@ -212,7 +357,13 @@ void Vk_Demo::run_frame() {
 
     model_transform = rotate_y(Matrix3x4::identity, (float)sim_time * radians(20.0f));
     view_transform = look_at_transform(camera_pos, Vector3(0), Vector3(0, 1, 0));
-    raster.update(model_transform, view_transform);
+
+    float aspect_ratio = (float)vk.surface_size.width / (float)vk.surface_size.height;
+    Matrix4x4 proj = perspective_transform_opengl_z01(radians(45.0f), aspect_ratio, 0.1f, 50.0f);
+    Matrix4x4 model_view = Matrix4x4::identity * view_transform * model_transform;
+    Matrix4x4 model_view_proj = proj * view_transform * model_transform;
+    static_cast<Uniform_Buffer*>(mapped_uniform_buffer)->model_view_proj = model_view_proj;
+    static_cast<Uniform_Buffer*>(mapped_uniform_buffer)->model_view = model_view;
 
     Matrix3x4 camera_to_world_transform;
     camera_to_world_transform.set_column(0, Vector3(view_transform.get_row(0)));
@@ -257,8 +408,8 @@ void Vk_Demo::draw_rasterized_image() {
     clear_values[1].depthStencil.stencil = 0;
 
     VkRenderPassBeginInfo render_pass_begin_info { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-    render_pass_begin_info.renderPass        = raster.render_pass;
-    render_pass_begin_info.framebuffer       = raster.framebuffer;
+    render_pass_begin_info.renderPass        = render_pass;
+    render_pass_begin_info.framebuffer       = framebuffer;
     render_pass_begin_info.renderArea.extent = vk.surface_size;
     render_pass_begin_info.clearValueCount   = (uint32_t)std::size(clear_values);
     render_pass_begin_info.pClearValues      = clear_values;
@@ -267,8 +418,8 @@ void Vk_Demo::draw_rasterized_image() {
     const VkDeviceSize zero_offset = 0;
     vkCmdBindVertexBuffers(vk.command_buffer, 0, 1, &vertex_buffer.handle, &zero_offset);
     vkCmdBindIndexBuffer(vk.command_buffer, index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, raster.pipeline_layout, 0, 1, &raster.descriptor_set, 0, nullptr);
-    vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, raster.pipeline);
+    vkCmdBindDescriptorSets(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     vkCmdDrawIndexed(vk.command_buffer, model_index_count, 1, 0, 0, 0);
     vkCmdEndRenderPass(vk.command_buffer);
 }
