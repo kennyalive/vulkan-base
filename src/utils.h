@@ -60,6 +60,9 @@ struct Descriptor_Set_Layout {
     VkDescriptorSetLayout create(const char* name);
 };
 
+//
+// GPU time queries.
+//
 struct GPU_Time_Interval {
     uint32_t start_query[2]; // end query == (start_query[frame_index] + 1)
     float length_ms;
@@ -93,3 +96,26 @@ private:
 };
 
 #define GPU_TIME_SCOPE(time_interval) GPU_Time_Scope gpu_time_scope##__LINE__(time_interval)
+
+//
+// GPU debug markers.
+//
+void begin_gpu_marker_scope(VkCommandBuffer command_buffer, const char* name);
+void end_gpu_marker_scope(VkCommandBuffer command_buffer);
+void write_gpu_marker(VkCommandBuffer command_buffer, const char* name);
+
+struct GPU_Marker_Scope {
+    GPU_Marker_Scope(VkCommandBuffer command_buffer, const char* name) {
+        this->command_buffer = command_buffer;
+        begin_gpu_marker_scope(command_buffer, name);
+    }
+    ~GPU_Marker_Scope() {
+        end_gpu_marker_scope(command_buffer);
+    }
+
+private:
+    VkCommandBuffer command_buffer;
+};
+
+#define GPU_MARKER_SCOPE(command_buffer, name) GPU_Marker_Scope gpu_marker_scope##__LINE__(command_buffer, name)
+

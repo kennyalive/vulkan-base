@@ -222,3 +222,20 @@ void GPU_Time_Keeper::next_frame() {
 
     vkCmdResetQueryPool(vk.command_buffer, vk.timestamp_query_pool, 0, query_count);
 }
+
+void begin_gpu_marker_scope(VkCommandBuffer command_buffer, const char* name) {
+    VkDebugUtilsLabelEXT label { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+    label.pLabelName = name;
+    vkCmdBeginDebugUtilsLabelEXT(command_buffer, &label);
+}
+
+void end_gpu_marker_scope(VkCommandBuffer command_buffer) {
+    vkCmdEndDebugUtilsLabelEXT(command_buffer);
+}
+
+void write_gpu_marker(VkCommandBuffer command_buffer, const char* name) {
+    VkDebugUtilsLabelEXT label { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+    label.pLabelName = name;
+    vkCmdInsertDebugUtilsLabelEXT(command_buffer, &label);
+}
+

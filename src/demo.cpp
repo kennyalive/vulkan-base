@@ -377,6 +377,7 @@ void Vk_Demo::run_frame() {
 
 void Vk_Demo::draw_frame() {
     vk_begin_frame();
+    begin_gpu_marker_scope(vk.command_buffer, "draw_frame");
     time_keeper.next_frame();
     gpu_times.frame->begin();
 
@@ -384,10 +385,13 @@ void Vk_Demo::draw_frame() {
     draw_imgui();
     copy_output_image_to_swapchain();
     gpu_times.frame->end();
+
+    end_gpu_marker_scope(vk.command_buffer);
     vk_end_frame();
 }
 
 void Vk_Demo::draw_rasterized_image() {
+    GPU_MARKER_SCOPE(vk.command_buffer, "draw_rasterized_image");
     GPU_TIME_SCOPE(gpu_times.draw);
 
     VkViewport viewport{};
@@ -425,6 +429,7 @@ void Vk_Demo::draw_rasterized_image() {
 }
 
 void Vk_Demo::draw_imgui() {
+    GPU_MARKER_SCOPE(vk.command_buffer, "draw_imgui");
     GPU_TIME_SCOPE(gpu_times.ui);
 
     ImGui::Render();
@@ -450,6 +455,7 @@ void Vk_Demo::draw_imgui() {
 }
 
 void Vk_Demo::copy_output_image_to_swapchain() {
+    GPU_MARKER_SCOPE(vk.command_buffer, "copy_output_image_to_swapchain");
     GPU_TIME_SCOPE(gpu_times.compute_copy);
 
     const uint32_t group_size_x = 32; // according to shader
