@@ -25,12 +25,10 @@
     </ClCompile>
     <ClCompile Include="src\matrix.cpp" />
     <ClCompile Include="src\copy_to_swapchain.cpp" />
-    <ClCompile Include="src\utils.cpp" />
     <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="third-party\imgui\impl\imgui_impl_glfw.cpp">
       <Filter>third-party\imgui\impl</Filter>
     </ClCompile>
-    <ClCompile Include="src\win32.cpp" />
     <ClCompile Include="third-party\glfw\context.c">
       <Filter>third-party\glfw</Filter>
     </ClCompile>
@@ -76,6 +74,7 @@
     <ClCompile Include="third-party\glfw\window.c">
       <Filter>third-party\glfw</Filter>
     </ClCompile>
+    <ClCompile Include="src\vk_utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\demo.h" />
@@ -96,12 +95,10 @@
     <ClInclude Include="src\matrix.h" />
     <ClInclude Include="src\vector.h" />
     <ClInclude Include="src\copy_to_swapchain.h" />
-    <ClInclude Include="src\utils.h" />
     <ClInclude Include="src\mesh.h" />
     <ClInclude Include="third-party\imgui\impl\imgui_impl_glfw.h">
       <Filter>third-party\imgui\impl</Filter>
     </ClInclude>
-    <ClInclude Include="src\platform.h" />
     <ClInclude Include="third-party\glfw\egl_context.h">
       <Filter>third-party\glfw</Filter>
     </ClInclude>
@@ -141,6 +138,7 @@
     <ClInclude Include="third-party\vk_mem_alloc.h">
       <Filter>third-party</Filter>
     </ClInclude>
+    <ClInclude Include="src\vk_utils.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">

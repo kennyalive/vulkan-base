@@ -3,7 +3,7 @@
 #include "matrix.h"
 #include "mesh.h"
 #include "vk.h"
-#include "utils.h"
+#include "vk_utils.h"
 
 #include "glfw/glfw3.h"
 #include "imgui/imgui.h"

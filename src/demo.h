@@ -2,7 +2,7 @@
 
 #include "copy_to_swapchain.h"
 #include "matrix.h"
-#include "utils.h"
+#include "vk_utils.h"
 #include "vk.h"
 
 #include <vector>
