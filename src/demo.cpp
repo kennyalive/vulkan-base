@@ -125,7 +125,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         vk_set_debug_name(ui_render_pass, "ui_render_pass");
     }
 
-    uniform_buffer = vk_create_host_visible_buffer(static_cast<VkDeviceSize>(sizeof(Uniform_Buffer)),
+    uniform_buffer = vk_create_mapped_buffer(static_cast<VkDeviceSize>(sizeof(Uniform_Buffer)),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &mapped_uniform_buffer, "uniform_buffer");
 
     descriptor_set_layout = Descriptor_Set_Layout()

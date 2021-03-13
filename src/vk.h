@@ -4,11 +4,12 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #define NOMINMAX
 #endif
+
 #include "volk/volk.h"
-#include "vk_enum_string_helper.h"
+#include "vulkan/vk_enum_string_helper.h"
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
-#include "vk_mem_alloc.h"
+#include "vma/vk_mem_alloc.h"
 
 #include <functional>
 #include <string>
@@ -18,15 +19,16 @@
 #define VK_CHECK(function_call) { VkResult result = function_call;  VK_CHECK_RESULT(result); }
 
 struct Vk_Image {
-    VkImage         handle;
-    VkImageView     view;
-    VmaAllocation   allocation;
+    VkImage handle = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    VmaAllocation allocation = VK_NULL_HANDLE;
     void destroy();
 };
 
 struct Vk_Buffer {
-    VkBuffer        handle;
-    VmaAllocation   allocation;
+    VkBuffer handle = VK_NULL_HANDLE;
+    VmaAllocation allocation = VK_NULL_HANDLE;
+    VkDeviceAddress device_address = 0;
     void destroy();
 };
 
@@ -59,8 +61,8 @@ void vk_release_resolution_dependent_resources();
 void vk_restore_resolution_dependent_resources(bool vsync);
 
 void vk_ensure_staging_buffer_allocation(VkDeviceSize size);
-Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const char* name);
-Vk_Buffer vk_create_host_visible_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name);
+Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const void* data = nullptr, const char* name = nullptr);
+Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name = nullptr);
 Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate_mipmaps, const uint8_t* pixels, int bytes_per_pixel, const char*  name);
 Vk_Image vk_create_image(int width, int height, VkFormat format, VkImageCreateFlags usage_flags, const char* name);
 Vk_Image vk_load_texture(const std::string& texture_file);
@@ -102,6 +104,9 @@ uint32_t vk_allocate_timestamp_queries(uint32_t count);
 
 template <typename Vk_Object_Type>
 void vk_set_debug_name(Vk_Object_Type object, const char* name) {
+    if (!name)
+        return;
+
     VkDebugUtilsObjectNameInfoEXT name_info { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
     /*char buf[128];
     snprintf(buf, sizeof(buf), "%s 0x%llx", name, (uint64_t)object);*/
@@ -139,8 +144,8 @@ void vk_set_debug_name(Vk_Object_Type object, const char* name) {
     else IF_TYPE_THEN_ENUM(VkDescriptorUpdateTemplate,  VK_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE   )
     else IF_TYPE_THEN_ENUM(VkSurfaceKHR,                VK_OBJECT_TYPE_SURFACE_KHR                  )
     else IF_TYPE_THEN_ENUM(VkSwapchainKHR,              VK_OBJECT_TYPE_SWAPCHAIN_KHR                )
+    else IF_TYPE_THEN_ENUM(VkAccelerationStructureKHR,  VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR    )
     else IF_TYPE_THEN_ENUM(VkDebugUtilsMessengerEXT,    VK_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT    )
-    else IF_TYPE_THEN_ENUM(VkAccelerationStructureNV,   VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_NV    )
     else static_assert(false, "Unknown Vulkan object type");
 #undef IF_TYPE_THEN_ENUM
 

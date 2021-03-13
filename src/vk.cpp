@@ -163,7 +163,9 @@ static void create_instance(bool enable_validation_layers) {
     }
 
     VkApplicationInfo app_info { VK_STRUCTURE_TYPE_APPLICATION_INFO };
-    app_info.apiVersion = VK_API_VERSION_1_1;
+    // The highest version of instance-level, physical-device-level or
+    // device-level functionality we are going to use.
+    app_info.apiVersion = VK_API_VERSION_1_2;
 
     VkInstanceCreateInfo desc { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
     desc.pApplicationInfo        = &app_info;
@@ -198,8 +200,8 @@ static void create_device(GLFWwindow* window) {
             VkPhysicalDeviceProperties props;
             vkGetPhysicalDeviceProperties(physical_device, &props);
 
-            // Check for Vulkan 1.1 ccompatibility.
-            if (VK_VERSION_MAJOR(props.apiVersion) == 1 && VK_VERSION_MINOR(props.apiVersion) >= 1)
+            // Check for device-level Vulkan 1.2 compatibility.
+            if (VK_VERSION_MAJOR(props.apiVersion) == 1 && VK_VERSION_MINOR(props.apiVersion) >= 2)
             {
                 vk.physical_device = physical_device;
                 vk.timestamp_period_ms = (double)props.limits.timestampPeriod * 1e-6;
@@ -261,22 +263,25 @@ static void create_device(GLFWwindow* window) {
         }
 
         const float priority = 1.0;
-        VkDeviceQueueCreateInfo queue_desc { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-        queue_desc.queueFamilyIndex = vk.queue_family_index;
-        queue_desc.queueCount       = 1;
-        queue_desc.pQueuePriorities = &priority;
+        VkDeviceQueueCreateInfo queue_create_info { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+        queue_create_info.queueFamilyIndex = vk.queue_family_index;
+        queue_create_info.queueCount = 1;
+        queue_create_info.pQueuePriorities = &priority;
 
-        VkPhysicalDeviceFeatures features {};
-        features.vertexPipelineStoresAndAtomics = VK_TRUE; // to shut up improper validation warning (image store is in the raygen shader not in the vertex stage)
+        VkPhysicalDeviceVulkan12Features vulkan12_features { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+        vulkan12_features.bufferDeviceAddress = VK_TRUE;
 
-        VkDeviceCreateInfo device_desc { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
-        device_desc.queueCreateInfoCount    = 1;
-        device_desc.pQueueCreateInfos       = &queue_desc;
-        device_desc.enabledExtensionCount   = (uint32_t)device_extensions.size();
-        device_desc.ppEnabledExtensionNames = device_extensions.data();
-        device_desc.pEnabledFeatures = &features;
+        VkPhysicalDeviceFeatures2 features2 { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+        features2.pNext = &vulkan12_features;
 
-        VK_CHECK(vkCreateDevice(vk.physical_device, &device_desc, nullptr, &vk.device));
+        VkDeviceCreateInfo device_create_info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
+        device_create_info.pNext = &features2;
+        device_create_info.queueCreateInfoCount = 1;
+        device_create_info.pQueueCreateInfos = &queue_create_info;
+        device_create_info.enabledExtensionCount = (uint32_t)device_extensions.size();
+        device_create_info.ppEnabledExtensionNames = device_extensions.data();
+
+        VK_CHECK(vkCreateDevice(vk.physical_device, &device_create_info, nullptr, &vk.device));
     }
 }
 
@@ -385,16 +390,14 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
     VK_CHECK(volkInitialize());
     uint32_t instance_version = volkGetInstanceVersion();
 
-    // Check the highest Vulkan instance version supported by the loader.
+    // Require version 1.1 or higher of instance-level functionality.
+    // "As long as the instance supports at least Vulkan 1.1, an application can use different 
+    // versions of Vulkan with an instance than it does with a device or physical device."
     bool loader_supports_version_higher_than_or_equal_to_1_1 =
         VK_VERSION_MAJOR(instance_version) > 1 || VK_VERSION_MINOR(instance_version) >= 1;
-
     if (!loader_supports_version_higher_than_or_equal_to_1_1)
         error("Vulkan loader does not support Vulkan API version 1.1");
 
-    // If Vulkan loader reports it supports Vulkan version that is > X it does not guarantee that X is supported.
-    // Only when we successfully create VkInstance by setting VkApplicationInfo::apiVersion to X
-    // we will know that X is supported.
     create_instance(enable_validation_layers);
     volkLoadInstance(vk.instance);
 
@@ -425,6 +428,8 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
     alloc_funcs.vkFreeMemory                        = vkFreeMemory;
     alloc_funcs.vkMapMemory                         = vkMapMemory;
     alloc_funcs.vkUnmapMemory                       = vkUnmapMemory;
+    alloc_funcs.vkFlushMappedMemoryRanges           = vkFlushMappedMemoryRanges;
+    alloc_funcs.vkInvalidateMappedMemoryRanges      = vkInvalidateMappedMemoryRanges;
     alloc_funcs.vkBindBufferMemory                  = vkBindBufferMemory;
     alloc_funcs.vkBindImageMemory                   = vkBindImageMemory;
     alloc_funcs.vkGetBufferMemoryRequirements       = vkGetBufferMemoryRequirements;
@@ -433,12 +438,15 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
     alloc_funcs.vkDestroyBuffer                     = vkDestroyBuffer;
     alloc_funcs.vkCreateImage                       = vkCreateImage;
     alloc_funcs.vkDestroyImage                      = vkDestroyImage;
+    alloc_funcs.vkCmdCopyBuffer                     = vkCmdCopyBuffer;
     alloc_funcs.vkGetBufferMemoryRequirements2KHR   = vkGetBufferMemoryRequirements2KHR;
     alloc_funcs.vkGetImageMemoryRequirements2KHR    = vkGetImageMemoryRequirements2KHR;
 
-    VmaAllocatorCreateInfo allocator_info = {};
+    VmaAllocatorCreateInfo allocator_info {};
+    allocator_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     allocator_info.physicalDevice = vk.physical_device;
     allocator_info.device = vk.device;
+    allocator_info.instance = vk.instance;
     allocator_info.pVulkanFunctions = &alloc_funcs;
     VK_CHECK(vmaCreateAllocator(&allocator_info, &vk.allocator));
 
@@ -598,10 +606,10 @@ void vk_ensure_staging_buffer_allocation(VkDeviceSize size) {
     vk.staging_buffer_size = size;
 }
 
-Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const char* name) {
+Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const void* data, const char* name) {
     VkBufferCreateInfo buffer_create_info { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    buffer_create_info.size        = size;
-    buffer_create_info.usage       = usage;
+    buffer_create_info.size = size;
+    buffer_create_info.usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo alloc_create_info{};
@@ -610,28 +618,46 @@ Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const ch
     Vk_Buffer buffer;
     VK_CHECK(vmaCreateBuffer(vk.allocator, &buffer_create_info, &alloc_create_info, &buffer.handle, &buffer.allocation, nullptr));
     vk_set_debug_name(buffer.handle, name);
+
+    VkBufferDeviceAddressInfo buffer_address_info { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+    buffer_address_info.buffer = buffer.handle;
+    buffer.device_address = vkGetBufferDeviceAddress(vk.device, &buffer_address_info);
+
+    if (data != nullptr) {
+        vk_ensure_staging_buffer_allocation(size);
+        memcpy(vk.staging_buffer_ptr, data, size);
+
+        vk_execute(vk.command_pools[0], vk.queue, [size, &buffer](VkCommandBuffer command_buffer) {
+            VkBufferCopy region;
+            region.srcOffset = 0;
+            region.dstOffset = 0;
+            region.size = size;
+            vkCmdCopyBuffer(command_buffer, vk.staging_buffer, buffer.handle, 1, &region);
+        });
+    }
     return buffer;
 }
 
-Vk_Buffer vk_create_host_visible_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name) {
+Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name) {
     VkBufferCreateInfo buffer_create_info { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    buffer_create_info.size         = size;
-    buffer_create_info.usage        = usage;
-    buffer_create_info.sharingMode  = VK_SHARING_MODE_EXCLUSIVE;
+    buffer_create_info.size = size;
+    buffer_create_info.usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
     VmaAllocationCreateInfo alloc_create_info{};
     alloc_create_info.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
     alloc_create_info.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
     VmaAllocationInfo alloc_info;
-
     Vk_Buffer buffer;
     VK_CHECK(vmaCreateBuffer(vk.allocator, &buffer_create_info, &alloc_create_info, &buffer.handle, &buffer.allocation, &alloc_info));
     vk_set_debug_name(buffer.handle, name);
 
+    VkBufferDeviceAddressInfo buffer_address_info { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+    buffer_address_info.buffer = buffer.handle;
+    buffer.device_address = vkGetBufferDeviceAddress(vk.device, &buffer_address_info);
+
     if (buffer_ptr)
         *buffer_ptr = alloc_info.pMappedData;
-
     return buffer;
 }
 

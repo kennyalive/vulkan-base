@@ -71,7 +71,7 @@
       <AdditionalManifestFiles>DeclareDPIAware.manifest</AdditionalManifestFiles>
     </Manifest>
     <CustomBuild>
-      <Command>$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V --target-env vulkan1.1 -o $(ProjectDir)data\spirv\%(Filename).spv &amp;&amp; $(VULKAN_SDK)\Bin\spirv-opt $(ProjectDir)data\spirv\%(Filename).spv -O --strip-debug -o $(ProjectDir)data\spirv\%(Filename).spv</Command>
+      <Command>$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V --target-env vulkan1.2 -o $(ProjectDir)data\spirv\%(Filename).spv &amp;&amp; $(VULKAN_SDK)\Bin\spirv-opt $(ProjectDir)data\spirv\%(Filename).spv -O --strip-debug -o $(ProjectDir)data\spirv\%(Filename).spv</Command>
       <Outputs>$(ProjectDir)data\spirv\%(Filename).spv</Outputs>
       <AdditionalInputs>$(ProjectDir)src\shaders\common.glsl</AdditionalInputs>
       <LinkObjects>false</LinkObjects>
@@ -101,9 +101,9 @@
       <AdditionalManifestFiles>DeclareDPIAware.manifest</AdditionalManifestFiles>
     </Manifest>
     <CustomBuild>
-      <Command>$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V --target-env vulkan1.1 -o $(ProjectDir)data\spirv\%(Filename).spv &amp;&amp; $(VULKAN_SDK)\Bin\spirv-opt $(ProjectDir)data\spirv\%(Filename).spv -O --strip-debug -o $(ProjectDir)data\spirv\%(Filename).spv</Command>
+      <Command>$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V --target-env vulkan1.2 -o $(ProjectDir)data\spirv\%(Filename).spv &amp;&amp; $(VULKAN_SDK)\Bin\spirv-opt $(ProjectDir)data\spirv\%(Filename).spv -O --strip-debug -o $(ProjectDir)data\spirv\%(Filename).spv</Command>
       <Outputs>$(ProjectDir)data\spirv\%(Filename).spv</Outputs>
-      <AdditionalInputs>$(ProjectDir)src\shaders\rt_utils.glsl;$(ProjectDir)src\shaders\common.glsl</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)src\shaders\common.glsl</AdditionalInputs>
       <LinkObjects>false</LinkObjects>
       <Message>
       </Message>
