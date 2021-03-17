@@ -21,6 +21,8 @@ public:
     void run_frame();
 
 private:
+    void create_depth_buffer();
+    void destroy_depth_buffer();
     void draw_frame();
     void draw_rasterized_image();
     void draw_imgui();
@@ -42,6 +44,13 @@ private:
     VkFramebuffer               ui_framebuffer;
     Vk_Image                    output_image;
     Copy_To_Swapchain           copy_to_swapchain;
+
+    struct Depth_Buffer_Info {
+        VkImage image;
+        VkImageView image_view;
+        VmaAllocation allocation;
+    };
+    Depth_Buffer_Info depth_info;
 
     VkDescriptorSetLayout       descriptor_set_layout;
     VkPipelineLayout            pipeline_layout;

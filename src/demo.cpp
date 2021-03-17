@@ -21,6 +21,19 @@ struct Uniform_Buffer {
 };
 }
 
+static VkFormat get_depth_image_format() {
+    VkFormat candidates[2] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT };
+    for (auto format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(vk.physical_device, format, &props);
+        if ((props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
+            return format;
+        }
+    }
+    error("failed to select depth attachment format");
+    return VK_FORMAT_UNDEFINED;
+}
+
 void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     vk_initialize(window, enable_validation_layers);
 
@@ -163,7 +176,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         attachments[0].initialLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
         attachments[0].finalLayout      = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        attachments[1].format           = vk.depth_info.format;
+        attachments[1].format           = get_depth_image_format();
         attachments[1].samples          = VK_SAMPLE_COUNT_1_BIT;
         attachments[1].loadOp           = VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachments[1].storeOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -246,9 +259,6 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
             .sampler        (2, sampler);
     }
 
-    copy_to_swapchain.create();
-    restore_resolution_dependent_resources();
-
     // ImGui setup.
     {
         ImGui::CreateContext();
@@ -270,6 +280,9 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         });
         ImGui_ImplVulkan_InvalidateFontUploadObjects();
     }
+
+    copy_to_swapchain.create();
+    restore_resolution_dependent_resources();
 
     gpu_times.frame = time_keeper.allocate_time_interval();
     gpu_times.draw = time_keeper.allocate_time_interval();
@@ -309,13 +322,18 @@ void Vk_Demo::release_resolution_dependent_resources() {
     framebuffer = VK_NULL_HANDLE;
 
     output_image.destroy();
+    destroy_depth_buffer();
 }
 
 void Vk_Demo::restore_resolution_dependent_resources() {
+    create_depth_buffer();
+
     // output image
     {
         output_image = vk_create_image(vk.surface_size.width, vk.surface_size.height, VK_FORMAT_R16G16B16A16_SFLOAT,
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, "output_image");
+
+        copy_to_swapchain.update_resolution_dependent_descriptors(output_image.view);
     }
 
     // imgui framebuffer
@@ -329,21 +347,24 @@ void Vk_Demo::restore_resolution_dependent_resources() {
         create_info.layers          = 1;
 
         VK_CHECK(vkCreateFramebuffer(vk.device, &create_info, nullptr, &ui_framebuffer));
+        vk_set_debug_name(ui_framebuffer, "imgui_framebuffer");
     }
     
-    VkImageView attachments[] = {output_image.view, vk.depth_info.image_view};
-    VkFramebufferCreateInfo create_info { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-    create_info.renderPass      = render_pass;
-    create_info.attachmentCount = (uint32_t)std::size(attachments);
-    create_info.pAttachments    = attachments;
-    create_info.width           = vk.surface_size.width;
-    create_info.height          = vk.surface_size.height;
-    create_info.layers          = 1;
+    // main framebuffer
+    {
+        VkImageView attachments[] = {output_image.view, depth_info.image_view};
+        VkFramebufferCreateInfo create_info { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        create_info.renderPass      = render_pass;
+        create_info.attachmentCount = (uint32_t)std::size(attachments);
+        create_info.pAttachments    = attachments;
+        create_info.width           = vk.surface_size.width;
+        create_info.height          = vk.surface_size.height;
+        create_info.layers          = 1;
 
-    VK_CHECK(vkCreateFramebuffer(vk.device, &create_info, nullptr, &framebuffer));
-    vk_set_debug_name(framebuffer, "color_depth_framebuffer");
-
-    copy_to_swapchain.update_resolution_dependent_descriptors(output_image.view);
+        VK_CHECK(vkCreateFramebuffer(vk.device, &create_info, nullptr, &framebuffer));
+        vk_set_debug_name(framebuffer, "color_depth_framebuffer");
+    }
+   
     last_frame_time = Clock::now();
 }
 
@@ -373,6 +394,65 @@ void Vk_Demo::run_frame() {
 
     do_imgui();
     draw_frame();
+}
+
+void Vk_Demo::create_depth_buffer() {
+    VkFormat depth_format = get_depth_image_format();
+
+    // create depth image
+    {
+        VkImageCreateInfo create_info { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        create_info.imageType       = VK_IMAGE_TYPE_2D;
+        create_info.format          = depth_format;
+        create_info.extent.width    = vk.surface_size.width;
+        create_info.extent.height   = vk.surface_size.height;
+        create_info.extent.depth    = 1;
+        create_info.mipLevels       = 1;
+        create_info.arrayLayers     = 1;
+        create_info.samples         = VK_SAMPLE_COUNT_1_BIT;
+        create_info.tiling          = VK_IMAGE_TILING_OPTIMAL;
+        create_info.usage           = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        create_info.sharingMode     = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.initialLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        VmaAllocationCreateInfo alloc_create_info{};
+        alloc_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+        VK_CHECK(vmaCreateImage(vk.allocator, &create_info, &alloc_create_info, &depth_info.image, &depth_info.allocation, nullptr));
+    }
+
+    // create depth image view
+    {
+        VkImageViewCreateInfo desc { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+        desc.image = depth_info.image;
+        desc.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        desc.format = depth_format;
+
+        desc.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        desc.subresourceRange.baseMipLevel = 0;
+        desc.subresourceRange.levelCount = 1;
+        desc.subresourceRange.baseArrayLayer = 0;
+        desc.subresourceRange.layerCount = 1;
+
+        VK_CHECK(vkCreateImageView(vk.device, &desc, nullptr, &depth_info.image_view));
+    }
+
+    VkImageSubresourceRange subresource_range{};
+    subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    subresource_range.levelCount = 1;
+    subresource_range.layerCount = 1;
+
+    vk_execute(vk.command_pools[0], vk.queue, [&subresource_range, this](VkCommandBuffer command_buffer) {
+        vk_cmd_image_barrier_for_subresource(command_buffer, depth_info.image, subresource_range,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    });
+}
+
+void Vk_Demo::destroy_depth_buffer() {
+    vmaDestroyImage(vk.allocator, depth_info.image, depth_info.allocation);
+    vkDestroyImageView(vk.device, depth_info.image_view, nullptr);
+    depth_info = Depth_Buffer_Info{};
 }
 
 void Vk_Demo::draw_frame() {
