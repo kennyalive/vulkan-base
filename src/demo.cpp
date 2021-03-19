@@ -536,26 +536,11 @@ void Vk_Demo::copy_output_image_to_swapchain() {
     GPU_MARKER_SCOPE(vk.command_buffer, "copy_output_image_to_swapchain");
     GPU_TIME_SCOPE(gpu_times.compute_copy);
 
-    const uint32_t group_size_x = 32; // according to shader
-    const uint32_t group_size_y = 32;
-
-    uint32_t group_count_x = (vk.surface_size.width + group_size_x - 1) / group_size_x;
-    uint32_t group_count_y = (vk.surface_size.height + group_size_y - 1) / group_size_y;
-
     vk_cmd_image_barrier(vk.command_buffer, vk.swapchain_info.images[vk.swapchain_image_index],
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL);
 
-    uint32_t push_constants[] = { vk.surface_size.width, vk.surface_size.height };
-
-    vkCmdPushConstants(vk.command_buffer, copy_to_swapchain.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT,
-        0, sizeof(push_constants), push_constants);
-
-    vkCmdBindDescriptorSets(vk.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, copy_to_swapchain.pipeline_layout,
-        0, 1, &copy_to_swapchain.sets[vk.swapchain_image_index], 0, nullptr);
-
-    vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, copy_to_swapchain.pipeline);
-    vkCmdDispatch(vk.command_buffer, group_count_x, group_count_y, 1);
+    copy_to_swapchain.dispatch();
 
     vk_cmd_image_barrier(vk.command_buffer, vk.swapchain_info.images[vk.swapchain_image_index],
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
