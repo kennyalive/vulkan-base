@@ -11,9 +11,6 @@
 #include "imgui/impl/imgui_impl_vulkan.h"
 #include "imgui/impl/imgui_impl_glfw.h"
 
-#include <cinttypes>
-#include <chrono>
-
 namespace {
 struct Uniform_Buffer {
     Matrix4x4   model_view_proj;
@@ -41,7 +38,6 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     {
         VkPhysicalDeviceProperties2 physical_device_properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
         vkGetPhysicalDeviceProperties2(vk.physical_device, &physical_device_properties);
-
         printf("Device: %s\n", physical_device_properties.properties.deviceName);
         printf("Vulkan API version: %d.%d.%d\n",
             VK_VERSION_MAJOR(physical_device_properties.properties.apiVersion),
@@ -53,15 +49,12 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     // Geometry buffers.
     {
         Mesh mesh = load_obj_mesh(get_resource_path("model/mesh.obj"), 1.25f);
-
-        model_vertex_count = static_cast<uint32_t>(mesh.vertices.size());
-        model_index_count = static_cast<uint32_t>(mesh.indices.size());
+        index_count = static_cast<uint32_t>(mesh.indices.size());
         {
             const VkDeviceSize size = mesh.vertices.size() * sizeof(mesh.vertices[0]);
-            vertex_buffer = vk_create_buffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "vertex_buffer");
+            vertex_buffer = vk_create_buffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "vertex_buffer");
             vk_ensure_staging_buffer_allocation(size);
             memcpy(vk.staging_buffer_ptr, mesh.vertices.data(), size);
-
             vk_execute(vk.command_pools[0], vk.queue, [&size, this](VkCommandBuffer command_buffer) {
                 VkBufferCopy region;
                 region.srcOffset = 0;
@@ -72,10 +65,9 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         }
         {
             const VkDeviceSize size = mesh.indices.size() * sizeof(mesh.indices[0]);
-            index_buffer = vk_create_buffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "index_buffer");
+            index_buffer = vk_create_buffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "index_buffer");
             vk_ensure_staging_buffer_allocation(size);
             memcpy(vk.staging_buffer_ptr, mesh.indices.data(), size);
-
             vk_execute(vk.command_pools[0], vk.queue, [&size, this](VkCommandBuffer command_buffer) {
                 VkBufferCopy region;
                 region.srcOffset = 0;
@@ -91,17 +83,17 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         texture = vk_load_texture("model/diffuse.jpg");
 
         VkSamplerCreateInfo create_info { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-        create_info.magFilter           = VK_FILTER_LINEAR;
-        create_info.minFilter           = VK_FILTER_LINEAR;
-        create_info.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        create_info.addressModeU        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        create_info.addressModeV        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        create_info.addressModeW        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        create_info.mipLodBias          = 0.0f;
-        create_info.anisotropyEnable    = VK_FALSE;
-        create_info.maxAnisotropy       = 1;
-        create_info.minLod              = 0.0f;
-        create_info.maxLod              = 12.0f;
+        create_info.magFilter = VK_FILTER_LINEAR;
+        create_info.minFilter = VK_FILTER_LINEAR;
+        create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        create_info.mipLodBias = 0.0f;
+        create_info.anisotropyEnable = VK_FALSE;
+        create_info.maxAnisotropy = 1;
+        create_info.minLod = 0.0f;
+        create_info.maxLod = 12.0f;
 
         VK_CHECK(vkCreateSampler(vk.device, &create_info, nullptr, &sampler));
         vk_set_debug_name(sampler, "diffuse_texture_sampler");
@@ -110,23 +102,23 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     // UI render pass.
     {
         VkAttachmentDescription attachments[1] = {};
-        attachments[0].format           = VK_FORMAT_R16G16B16A16_SFLOAT;
-        attachments[0].samples          = VK_SAMPLE_COUNT_1_BIT;
-        attachments[0].loadOp           = VK_ATTACHMENT_LOAD_OP_LOAD;
-        attachments[0].storeOp          = VK_ATTACHMENT_STORE_OP_STORE;
-        attachments[0].stencilLoadOp    = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[0].stencilStoreOp   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[0].initialLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        attachments[0].finalLayout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachments[0].format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         VkAttachmentReference color_attachment_ref;
         color_attachment_ref.attachment = 0;
-        color_attachment_ref.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount    = 1;
-        subpass.pColorAttachments       = &color_attachment_ref;
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &color_attachment_ref;
 
         VkRenderPassCreateInfo create_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
         create_info.attachmentCount = (uint32_t)std::size(attachments);
@@ -142,23 +134,23 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &mapped_uniform_buffer, "uniform_buffer");
 
     descriptor_set_layout = Descriptor_Set_Layout()
-        .uniform_buffer (0, VK_SHADER_STAGE_VERTEX_BIT)
-        .sampled_image  (1, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .sampler        (2, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .create         ("set_layout");
+        .uniform_buffer(0, VK_SHADER_STAGE_VERTEX_BIT)
+        .sampled_image(1, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .sampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .create("set_layout");
 
     // Pipeline layout.
     {
         VkPushConstantRange push_constant_range; // show_texture_lods value
-        push_constant_range.stageFlags  = VK_SHADER_STAGE_FRAGMENT_BIT;
-        push_constant_range.offset      = 0;
-        push_constant_range.size        = 4;
+        push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        push_constant_range.offset = 0;
+        push_constant_range.size = 4;
 
         VkPipelineLayoutCreateInfo create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-        create_info.setLayoutCount          = 1;
-        create_info.pSetLayouts             = &descriptor_set_layout;
-        create_info.pushConstantRangeCount  = 1;
-        create_info.pPushConstantRanges     = &push_constant_range;
+        create_info.setLayoutCount = 1;
+        create_info.pSetLayouts = &descriptor_set_layout;
+        create_info.pushConstantRangeCount = 1;
+        create_info.pPushConstantRanges = &push_constant_range;
 
         VK_CHECK(vkCreatePipelineLayout(vk.device, &create_info, nullptr, &pipeline_layout));
         vk_set_debug_name(pipeline_layout, "pipeline_layout");
@@ -167,36 +159,36 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     // Render pass.
     {
         VkAttachmentDescription attachments[2] = {};
-        attachments[0].format           = VK_FORMAT_R16G16B16A16_SFLOAT;
-        attachments[0].samples          = VK_SAMPLE_COUNT_1_BIT;
-        attachments[0].loadOp           = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachments[0].storeOp          = VK_ATTACHMENT_STORE_OP_STORE;
-        attachments[0].stencilLoadOp    = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[0].stencilStoreOp   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[0].initialLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachments[0].finalLayout      = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        attachments[0].format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        attachments[1].format           = get_depth_image_format();
-        attachments[1].samples          = VK_SAMPLE_COUNT_1_BIT;
-        attachments[1].loadOp           = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachments[1].storeOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[1].stencilLoadOp    = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[1].stencilStoreOp   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[1].initialLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        attachments[1].finalLayout      = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        attachments[1].format = get_depth_image_format();
+        attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         VkAttachmentReference color_attachment_ref;
         color_attachment_ref.attachment = 0;
-        color_attachment_ref.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         VkAttachmentReference depth_attachment_ref;
         depth_attachment_ref.attachment = 1;
-        depth_attachment_ref.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount    = 1;
-        subpass.pColorAttachments       = &color_attachment_ref;
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &color_attachment_ref;
         subpass.pDepthStencilAttachment = &depth_attachment_ref;
 
         VkRenderPassCreateInfo create_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
@@ -248,15 +240,15 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     // Descriptor sets.
     {
         VkDescriptorSetAllocateInfo desc { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
-        desc.descriptorPool     = vk.descriptor_pool;
+        desc.descriptorPool = vk.descriptor_pool;
         desc.descriptorSetCount = 1;
-        desc.pSetLayouts        = &descriptor_set_layout;
+        desc.pSetLayouts = &descriptor_set_layout;
         VK_CHECK(vkAllocateDescriptorSets(vk.device, &desc, &descriptor_set));
 
         Descriptor_Writes(descriptor_set)
-            .uniform_buffer (0, uniform_buffer.handle, 0, sizeof(Uniform_Buffer))
-            .sampled_image  (1, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-            .sampler        (2, sampler);
+            .uniform_buffer(0, uniform_buffer.handle, 0, sizeof(Uniform_Buffer))
+            .sampled_image(1, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+            .sampler(2, sampler);
     }
 
     // ImGui setup.
@@ -265,12 +257,12 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         ImGui_ImplGlfw_InitForVulkan(window, true);
 
         ImGui_ImplVulkan_InitInfo init_info{};
-        init_info.Instance          = vk.instance;
-        init_info.PhysicalDevice    = vk.physical_device;
-        init_info.Device            = vk.device;
-        init_info.QueueFamily       = vk.queue_family_index;
-        init_info.Queue             = vk.queue;
-        init_info.DescriptorPool    = vk.descriptor_pool;
+        init_info.Instance = vk.instance;
+        init_info.PhysicalDevice = vk.physical_device;
+        init_info.Device = vk.device;
+        init_info.QueueFamily = vk.queue_family_index;
+        init_info.Queue = vk.queue;
+        init_info.DescriptorPool = vk.descriptor_pool;
 
         ImGui_ImplVulkan_Init(&init_info, ui_render_pass);
         ImGui::StyleColorsDark();
@@ -339,12 +331,12 @@ void Vk_Demo::restore_resolution_dependent_resources() {
     // imgui framebuffer
     {
         VkFramebufferCreateInfo create_info { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-        create_info.renderPass      = ui_render_pass;
+        create_info.renderPass = ui_render_pass;
         create_info.attachmentCount = 1;
-        create_info.pAttachments    = &output_image.view;
-        create_info.width           = vk.surface_size.width;
-        create_info.height          = vk.surface_size.height;
-        create_info.layers          = 1;
+        create_info.pAttachments = &output_image.view;
+        create_info.width = vk.surface_size.width;
+        create_info.height = vk.surface_size.height;
+        create_info.layers = 1;
 
         VK_CHECK(vkCreateFramebuffer(vk.device, &create_info, nullptr, &ui_framebuffer));
         vk_set_debug_name(ui_framebuffer, "imgui_framebuffer");
@@ -354,12 +346,12 @@ void Vk_Demo::restore_resolution_dependent_resources() {
     {
         VkImageView attachments[] = {output_image.view, depth_info.image_view};
         VkFramebufferCreateInfo create_info { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-        create_info.renderPass      = render_pass;
+        create_info.renderPass = render_pass;
         create_info.attachmentCount = (uint32_t)std::size(attachments);
-        create_info.pAttachments    = attachments;
-        create_info.width           = vk.surface_size.width;
-        create_info.height          = vk.surface_size.height;
-        create_info.layers          = 1;
+        create_info.pAttachments = attachments;
+        create_info.width = vk.surface_size.width;
+        create_info.height = vk.surface_size.height;
+        create_info.layers = 1;
 
         VK_CHECK(vkCreateFramebuffer(vk.device, &create_info, nullptr, &framebuffer));
         vk_set_debug_name(framebuffer, "color_depth_framebuffer");
@@ -402,18 +394,18 @@ void Vk_Demo::create_depth_buffer() {
     // create depth image
     {
         VkImageCreateInfo create_info { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-        create_info.imageType       = VK_IMAGE_TYPE_2D;
-        create_info.format          = depth_format;
-        create_info.extent.width    = vk.surface_size.width;
-        create_info.extent.height   = vk.surface_size.height;
-        create_info.extent.depth    = 1;
-        create_info.mipLevels       = 1;
-        create_info.arrayLayers     = 1;
-        create_info.samples         = VK_SAMPLE_COUNT_1_BIT;
-        create_info.tiling          = VK_IMAGE_TILING_OPTIMAL;
-        create_info.usage           = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        create_info.sharingMode     = VK_SHARING_MODE_EXCLUSIVE;
-        create_info.initialLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
+        create_info.imageType = VK_IMAGE_TYPE_2D;
+        create_info.format = depth_format;
+        create_info.extent.width = vk.surface_size.width;
+        create_info.extent.height = vk.surface_size.height;
+        create_info.extent.depth = 1;
+        create_info.mipLevels = 1;
+        create_info.arrayLayers = 1;
+        create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+        create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        create_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
         VmaAllocationCreateInfo alloc_create_info{};
         alloc_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -504,7 +496,7 @@ void Vk_Demo::draw_rasterized_image() {
     vkCmdBindIndexBuffer(vk.command_buffer, index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    vkCmdDrawIndexed(vk.command_buffer, model_index_count, 1, 0, 0, 0);
+    vkCmdDrawIndexed(vk.command_buffer, index_count, 1, 0, 0, 0);
     vkCmdEndRenderPass(vk.command_buffer);
 }
 

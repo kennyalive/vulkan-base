@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cinttypes>
 #include <cmath>
 #include <cstdint>
 #include <string>
