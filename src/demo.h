@@ -64,9 +64,7 @@ private:
     VkDescriptorSet descriptor_set;
     Vk_Buffer uniform_buffer;
     void* mapped_uniform_buffer;
-    Vk_Buffer vertex_buffer;
-    Vk_Buffer index_buffer;
-    uint32_t index_count;
+    GPU_Mesh gpu_mesh;
     Vk_Image texture;
     VkSampler sampler;
     Vk_Image output_image;

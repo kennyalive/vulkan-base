@@ -5,12 +5,26 @@
 
 #include <vector>
 
+struct GPU_Mesh {
+    Vk_Buffer vertex_buffer;
+    Vk_Buffer index_buffer;
+    uint32_t vertex_count = 0;
+    uint32_t index_count = 0;
+
+    void destroy() {
+        vertex_buffer.destroy();
+        index_buffer.destroy();
+        vertex_count = 0;
+        index_count = 0;
+    }
+};
+
 struct Descriptor_Writes {
     static constexpr uint32_t max_writes = 32;
 
     struct Accel_Info {
-        VkWriteDescriptorSetAccelerationStructureNV accel;
-        VkAccelerationStructureNV handle; // referenced by accel
+        VkWriteDescriptorSetAccelerationStructureKHR accel;
+        VkAccelerationStructureKHR handle; // referenced by accel
     };
 
     union Resource_Info {
@@ -37,7 +51,7 @@ struct Descriptor_Writes {
     Descriptor_Writes& sampler(uint32_t binding, VkSampler sampler);
     Descriptor_Writes& uniform_buffer(uint32_t binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
     Descriptor_Writes& storage_buffer(uint32_t binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
-    Descriptor_Writes& accelerator(uint32_t binding, VkAccelerationStructureNV acceleration_structure);
+    Descriptor_Writes& accelerator(uint32_t binding, VkAccelerationStructureKHR acceleration_structure);
     void commit();
 };
 

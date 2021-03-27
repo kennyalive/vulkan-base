@@ -49,32 +49,17 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     // Geometry buffers.
     {
         Mesh mesh = load_obj_mesh(get_resource_path("model/mesh.obj"), 1.25f);
-        index_count = static_cast<uint32_t>(mesh.indices.size());
         {
             const VkDeviceSize size = mesh.vertices.size() * sizeof(mesh.vertices[0]);
-            vertex_buffer = vk_create_buffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "vertex_buffer");
-            vk_ensure_staging_buffer_allocation(size);
-            memcpy(vk.staging_buffer_ptr, mesh.vertices.data(), size);
-            vk_execute(vk.command_pools[0], vk.queue, [&size, this](VkCommandBuffer command_buffer) {
-                VkBufferCopy region;
-                region.srcOffset = 0;
-                region.dstOffset = 0;
-                region.size = size;
-                vkCmdCopyBuffer(command_buffer, vk.staging_buffer, vertex_buffer.handle, 1, &region);
-            });
+            VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            gpu_mesh.vertex_buffer = vk_create_buffer(size, usage, mesh.vertices.data(), "vertex_buffer");
+            gpu_mesh.vertex_count = uint32_t(mesh.vertices.size());
         }
         {
             const VkDeviceSize size = mesh.indices.size() * sizeof(mesh.indices[0]);
-            index_buffer = vk_create_buffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "index_buffer");
-            vk_ensure_staging_buffer_allocation(size);
-            memcpy(vk.staging_buffer_ptr, mesh.indices.data(), size);
-            vk_execute(vk.command_pools[0], vk.queue, [&size, this](VkCommandBuffer command_buffer) {
-                VkBufferCopy region;
-                region.srcOffset = 0;
-                region.dstOffset = 0;
-                region.size = size;
-                vkCmdCopyBuffer(command_buffer, vk.staging_buffer, index_buffer.handle, 1, &region);
-            });
+            VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            gpu_mesh.index_buffer = vk_create_buffer(size, usage, mesh.indices.data(), "index_buffer");
+            gpu_mesh.index_count = uint32_t(mesh.indices.size());
         }
     }
 
@@ -290,8 +275,7 @@ void Vk_Demo::shutdown() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    vertex_buffer.destroy();
-    index_buffer.destroy();
+    gpu_mesh.destroy();
     texture.destroy();
     copy_to_swapchain.destroy();
     vkDestroySampler(vk.device, sampler, nullptr);
@@ -492,11 +476,11 @@ void Vk_Demo::draw_rasterized_image() {
 
     vkCmdBeginRenderPass(vk.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
     const VkDeviceSize zero_offset = 0;
-    vkCmdBindVertexBuffers(vk.command_buffer, 0, 1, &vertex_buffer.handle, &zero_offset);
-    vkCmdBindIndexBuffer(vk.command_buffer, index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(vk.command_buffer, 0, 1, &gpu_mesh.vertex_buffer.handle, &zero_offset);
+    vkCmdBindIndexBuffer(vk.command_buffer, gpu_mesh.index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    vkCmdDrawIndexed(vk.command_buffer, index_count, 1, 0, 0, 0);
+    vkCmdDrawIndexed(vk.command_buffer, gpu_mesh.index_count, 1, 0, 0, 0);
     vkCmdEndRenderPass(vk.command_buffer);
 }
 
