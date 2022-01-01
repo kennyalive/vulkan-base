@@ -75,6 +75,9 @@
       <Filter>third-party\glfw</Filter>
     </ClCompile>
     <ClCompile Include="src\vk_utils.cpp" />
+    <ClCompile Include="third-party\imgui\imgui_tables.cpp">
+      <Filter>third-party\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\demo.h" />
