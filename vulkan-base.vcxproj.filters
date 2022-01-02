@@ -135,13 +135,13 @@
     <ClInclude Include="third-party\tiny_obj_loader.h">
       <Filter>third-party</Filter>
     </ClInclude>
-    <ClInclude Include="third-party\vk_enum_string_helper.h">
-      <Filter>third-party</Filter>
-    </ClInclude>
-    <ClInclude Include="third-party\vk_mem_alloc.h">
-      <Filter>third-party</Filter>
-    </ClInclude>
     <ClInclude Include="src\vk_utils.h" />
+    <ClInclude Include="third-party\volk\volk.h">
+      <Filter>third-party\volk</Filter>
+    </ClInclude>
+    <ClInclude Include="third-party\vma\vk_mem_alloc.h">
+      <Filter>third-party\vma</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">
@@ -161,6 +161,9 @@
     </Filter>
     <Filter Include="third-party\glfw">
       <UniqueIdentifier>{91a535d5-9f33-420e-a196-0e3e133284f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third-party\vma">
+      <UniqueIdentifier>{8797376b-dc5e-4c35-9955-c9f92306ca39}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
