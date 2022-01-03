@@ -73,7 +73,8 @@
     <CustomBuild>
       <Command>$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V --target-env vulkan1.2 -o $(ProjectDir)data\spirv\%(Filename).spv &amp;&amp; $(VULKAN_SDK)\Bin\spirv-opt $(ProjectDir)data\spirv\%(Filename).spv -O --strip-debug -o $(ProjectDir)data\spirv\%(Filename).spv</Command>
       <Outputs>$(ProjectDir)data\spirv\%(Filename).spv</Outputs>
-      <AdditionalInputs>$(ProjectDir)src\shaders\common.glsl</AdditionalInputs>
+      <AdditionalInputs>
+      </AdditionalInputs>
       <LinkObjects>false</LinkObjects>
       <Message>
       </Message>
@@ -183,7 +184,6 @@
     <CustomBuild Include="src\shaders\copy_to_swapchain.comp.glsl">
       <FileType>Document</FileType>
     </CustomBuild>
-    <None Include="src\shaders\common.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

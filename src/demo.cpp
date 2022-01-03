@@ -14,7 +14,6 @@
 namespace {
 struct Uniform_Buffer {
     Matrix4x4   model_view_proj;
-    Matrix4x4   model_view;
 };
 }
 
@@ -200,21 +199,16 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         state.vertex_binding_count = 1;
 
         // VkVertexInputAttributeDescription
-        state.vertex_attributes[0].location = 0; // vertex
+        state.vertex_attributes[0].location = 0; // position
         state.vertex_attributes[0].binding = 0;
         state.vertex_attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         state.vertex_attributes[0].offset = 0;
 
-        state.vertex_attributes[1].location = 1; // normal
+        state.vertex_attributes[1].location = 1; // uv
         state.vertex_attributes[1].binding = 0;
-        state.vertex_attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        state.vertex_attributes[1].format = VK_FORMAT_R32G32_SFLOAT;
         state.vertex_attributes[1].offset = 12;
-
-        state.vertex_attributes[2].location = 2; // uv
-        state.vertex_attributes[2].binding = 0;
-        state.vertex_attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
-        state.vertex_attributes[2].offset = 24;
-        state.vertex_attribute_count = 3;
+        state.vertex_attribute_count = 2;
 
         pipeline = vk_create_graphics_pipeline(state, pipeline_layout, render_pass, vertex_shader, fragment_shader);
 
@@ -358,10 +352,8 @@ void Vk_Demo::run_frame() {
 
     float aspect_ratio = (float)vk.surface_size.width / (float)vk.surface_size.height;
     Matrix4x4 proj = perspective_transform_opengl_z01(radians(45.0f), aspect_ratio, 0.1f, 50.0f);
-    Matrix4x4 model_view = Matrix4x4::identity * view_transform * model_transform;
     Matrix4x4 model_view_proj = proj * view_transform * model_transform;
     static_cast<Uniform_Buffer*>(mapped_uniform_buffer)->model_view_proj = model_view_proj;
-    static_cast<Uniform_Buffer*>(mapped_uniform_buffer)->model_view = model_view;
 
     Matrix3x4 camera_to_world_transform;
     camera_to_world_transform.set_column(0, Vector3(view_transform.get_row(0)));

@@ -167,11 +167,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\common.glsl">
-      <Filter>shaders</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <CustomBuild Include="src\shaders\copy_to_swapchain.comp.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>
