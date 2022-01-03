@@ -1,11 +1,9 @@
 #pragma once
 
 #include "copy_to_swapchain.h"
-#include "matrix.h"
+#include "linear_algebra.h"
 #include "vk_utils.h"
 #include "vk.h"
-
-#include <vector>
 
 struct GLFWwindow;
 

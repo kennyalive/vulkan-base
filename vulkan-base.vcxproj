@@ -104,7 +104,8 @@
     <CustomBuild>
       <Command>$(VULKAN_SDK)\Bin\glslangValidator %(FullPath) -V --target-env vulkan1.2 -o $(ProjectDir)data\spirv\%(Filename).spv &amp;&amp; $(VULKAN_SDK)\Bin\spirv-opt $(ProjectDir)data\spirv\%(Filename).spv -O --strip-debug -o $(ProjectDir)data\spirv\%(Filename).spv</Command>
       <Outputs>$(ProjectDir)data\spirv\%(Filename).spv</Outputs>
-      <AdditionalInputs>$(ProjectDir)src\shaders\common.glsl</AdditionalInputs>
+      <AdditionalInputs>
+      </AdditionalInputs>
       <LinkObjects>false</LinkObjects>
       <Message>
       </Message>
@@ -113,9 +114,9 @@
   <ItemGroup>
     <ClCompile Include="src\common.cpp" />
     <ClCompile Include="src\copy_to_swapchain.cpp" />
-    <ClCompile Include="src\mesh.cpp" />
+    <ClCompile Include="src\triangle_mesh.cpp" />
     <ClCompile Include="src\vk_utils.cpp" />
-    <ClCompile Include="src\matrix.cpp" />
+    <ClCompile Include="src\linear_algebra.cpp" />
     <ClCompile Include="src\vk.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\demo.cpp" />
@@ -149,10 +150,10 @@
   <ItemGroup>
     <ClInclude Include="src\common.h" />
     <ClInclude Include="src\copy_to_swapchain.h" />
-    <ClInclude Include="src\mesh.h" />
+    <ClInclude Include="src\math.h" />
+    <ClInclude Include="src\triangle_mesh.h" />
     <ClInclude Include="src\vk_utils.h" />
-    <ClInclude Include="src\matrix.h" />
-    <ClInclude Include="src\vector.h" />
+    <ClInclude Include="src\linear_algebra.h" />
     <ClInclude Include="src\vk.h" />
     <ClInclude Include="src\demo.h" />
     <ClInclude Include="third-party\glfw\egl_context.h" />

@@ -1,4 +1,5 @@
-#include "mesh.h"
+#include "triangle_mesh.h"
+#include "math.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -6,7 +7,7 @@
 #include <algorithm>
 #include <unordered_map>
 
-Mesh load_obj_mesh(const std::string& path, float additional_scale) {
+Triangle_Mesh load_obj_model(const std::string& path, float additional_scale) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -43,7 +44,7 @@ Mesh load_obj_mesh(const std::string& path, float additional_scale) {
 	Vector3 mesh_min(Infinity);
 	Vector3 mesh_max(-Infinity);
 
-	Mesh mesh;
+	Triangle_Mesh mesh;
 	mesh.indices.reserve(obj_mesh.indices.size());
 
 	for (const tinyobj::index_t& index : obj_mesh.indices) {

@@ -1,9 +1,7 @@
 #include "common.h"
 #include "demo.h"
-#include "matrix.h"
-#include "mesh.h"
-#include "vk.h"
-#include "vk_utils.h"
+#include "math.h"
+#include "triangle_mesh.h"
 
 #include "glfw/glfw3.h"
 #include "imgui/imgui.h"
@@ -47,7 +45,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
     // Geometry buffers.
     {
-        Mesh mesh = load_obj_mesh(get_resource_path("model/mesh.obj"), 1.25f);
+        Triangle_Mesh mesh = load_obj_model((get_data_directory() / "model/mesh.obj").string(), 1.25f);
         {
             const VkDeviceSize size = mesh.vertices.size() * sizeof(mesh.vertices[0]);
             VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -64,7 +62,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
     // Texture.
     {
-        texture = vk_load_texture("model/diffuse.jpg");
+        texture = vk_load_texture((get_data_directory() / "model/diffuse.jpg").string());
 
         VkSamplerCreateInfo create_info { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
         create_info.magFilter = VK_FILTER_LINEAR;
@@ -187,8 +185,8 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
     // Pipeline.
     {
-        VkShaderModule vertex_shader = vk_load_spirv("spirv/mesh.vert.spv");
-        VkShaderModule fragment_shader = vk_load_spirv("spirv/mesh.frag.spv");
+		Shader_Module vertex_shader("spirv/mesh.vert.spv");
+		Shader_Module fragment_shader("spirv/mesh.frag.spv");
 
         Vk_Graphics_Pipeline_State state = get_default_graphics_pipeline_state();
 
@@ -210,10 +208,8 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         state.vertex_attributes[1].offset = 12;
         state.vertex_attribute_count = 2;
 
-        pipeline = vk_create_graphics_pipeline(state, pipeline_layout, render_pass, vertex_shader, fragment_shader);
-
-        vkDestroyShaderModule(vk.device, vertex_shader, nullptr);
-        vkDestroyShaderModule(vk.device, fragment_shader, nullptr);
+        pipeline = vk_create_graphics_pipeline(state, pipeline_layout, render_pass,
+			vertex_shader.handle, fragment_shader.handle);
     }
 
     // Descriptor sets.

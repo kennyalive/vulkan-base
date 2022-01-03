@@ -23,9 +23,7 @@
     <ClCompile Include="third-party\imgui\imgui_widgets.cpp">
       <Filter>third-party\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="src\matrix.cpp" />
     <ClCompile Include="src\copy_to_swapchain.cpp" />
-    <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="third-party\imgui\impl\imgui_impl_glfw.cpp">
       <Filter>third-party\imgui\impl</Filter>
     </ClCompile>
@@ -78,6 +76,8 @@
     <ClCompile Include="third-party\imgui\imgui_tables.cpp">
       <Filter>third-party\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="src\linear_algebra.cpp" />
+    <ClCompile Include="src\triangle_mesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\demo.h" />
@@ -95,10 +95,7 @@
     <ClInclude Include="third-party\imgui\imgui_internal.h">
       <Filter>third-party\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="src\matrix.h" />
-    <ClInclude Include="src\vector.h" />
     <ClInclude Include="src\copy_to_swapchain.h" />
-    <ClInclude Include="src\mesh.h" />
     <ClInclude Include="third-party\imgui\impl\imgui_impl_glfw.h">
       <Filter>third-party\imgui\impl</Filter>
     </ClInclude>
@@ -142,6 +139,9 @@
     <ClInclude Include="third-party\vma\vk_mem_alloc.h">
       <Filter>third-party\vma</Filter>
     </ClInclude>
+    <ClInclude Include="src\linear_algebra.h" />
+    <ClInclude Include="src\math.h" />
+    <ClInclude Include="src\triangle_mesh.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">

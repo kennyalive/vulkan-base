@@ -1,16 +1,15 @@
 #pragma once
 
-#include "vector.h"
-#include <vector>
+#include "linear_algebra.h"
 
 struct Vertex {
     Vector3 pos;
     Vector2 uv;
 };
 
-struct Mesh {
+struct Triangle_Mesh {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 };
 
-Mesh load_obj_mesh(const std::string& path, float additional_scale);
+Triangle_Mesh load_obj_model(const std::string& path, float additional_scale);
