@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "lib.h"
 #include "vk.h"
 
 struct GPU_Mesh {

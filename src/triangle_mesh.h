@@ -1,6 +1,7 @@
 #pragma once
 
 #include "linear_algebra.h"
+#include <vector>
 
 struct Vertex {
     Vector3 pos;

@@ -3,10 +3,24 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <limits> // std::numeric_limits
 #include <string>
 #include <vector>
 
 namespace fs = std::filesystem;
+
+constexpr float Pi = 3.14159265f;
+constexpr float Infinity = std::numeric_limits<float>::infinity();
+
+inline float radians(float degrees) {
+	constexpr float deg_2_rad = Pi / 180.f;
+	return degrees * deg_2_rad;
+}
+
+inline float degrees(float radians) {
+	constexpr float rad_2_deg = 180.f / Pi;
+	return radians * rad_2_deg;
+}
 
 void error(const std::string& message);
 
@@ -15,6 +29,13 @@ void error(const std::string& message);
 fs::path get_data_directory();
 
 std::vector<uint8_t> read_binary_file(const std::string& file_name);
+
+// Boost hash combine.
+template <typename T>
+inline void hash_combine(std::size_t& seed, T value) {
+	std::hash<T> hasher;
+	seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
 
 struct Timestamp {
     Timestamp() : t(std::chrono::steady_clock::now()) {}

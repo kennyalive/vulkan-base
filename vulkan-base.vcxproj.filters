@@ -4,7 +4,6 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\demo.cpp" />
     <ClCompile Include="src\vk.cpp" />
-    <ClCompile Include="src\common.cpp" />
     <ClCompile Include="third-party\volk\volk.c">
       <Filter>third-party\volk</Filter>
     </ClCompile>
@@ -77,11 +76,11 @@
     </ClCompile>
     <ClCompile Include="src\linear_algebra.cpp" />
     <ClCompile Include="src\triangle_mesh.cpp" />
+    <ClCompile Include="src\lib.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\demo.h" />
     <ClInclude Include="src\vk.h" />
-    <ClInclude Include="src\common.h" />
     <ClInclude Include="third-party\imgui\impl\imgui_impl_vulkan.h">
       <Filter>third-party\imgui\impl</Filter>
     </ClInclude>
@@ -138,8 +137,8 @@
       <Filter>third-party\vma</Filter>
     </ClInclude>
     <ClInclude Include="src\linear_algebra.h" />
-    <ClInclude Include="src\math.h" />
     <ClInclude Include="src\triangle_mesh.h" />
+    <ClInclude Include="src\lib.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">

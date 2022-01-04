@@ -1,5 +1,5 @@
 #include "triangle_mesh.h"
-#include "math.h"
+#include "lib.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>

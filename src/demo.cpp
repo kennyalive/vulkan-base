@@ -1,6 +1,4 @@
-#include "common.h"
 #include "demo.h"
-#include "math.h"
 #include "triangle_mesh.h"
 
 #include "glfw/glfw3.h"

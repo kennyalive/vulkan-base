@@ -1,4 +1,4 @@
-#include "common.h"
+#include "lib.h"
 
 #define VMA_IMPLEMENTATION
 #include "vk.h"
@@ -9,12 +9,6 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "glfw/glfw3.h"
 #include "glfw/glfw3native.h"
-
-#include <algorithm>
-#include <cassert>
-#include <functional>
-#include <iostream>
-#include <vector>
 
 static const VkDescriptorPoolSize descriptor_pool_sizes[] = {
     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             16},
