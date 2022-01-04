@@ -1,9 +1,7 @@
 #pragma once
 
-#include "copy_to_swapchain.h"
 #include "linear_algebra.h"
 #include "vk_utils.h"
-#include "vk.h"
 
 struct GLFWwindow;
 
@@ -23,7 +21,6 @@ private:
     void draw_frame();
     void draw_rasterized_image();
     void draw_imgui();
-    void copy_output_image_to_swapchain();
     void do_imgui();
 
 private:
@@ -34,8 +31,9 @@ private:
     bool vsync = true;
     bool animate = false;
 
-    Time last_frame_time;
-    double sim_time;
+	Time last_frame_time{};
+    double sim_time = 0;
+	Vector3 camera_pos = Vector3(0, 0.5, 3.0);
 
     struct Depth_Buffer_Info {
         VkImage image;
@@ -49,13 +47,14 @@ private:
         GPU_Time_Interval* frame;
         GPU_Time_Interval* draw;
         GPU_Time_Interval* ui;
-        GPU_Time_Interval* compute_copy;
-    } gpu_times;
+	} gpu_times{};
+
+	VkRenderPass render_pass;
+	std::vector<VkFramebuffer> framebuffers;
 
     VkRenderPass ui_render_pass;
-    VkFramebuffer ui_framebuffer;
-    VkRenderPass render_pass;
-    VkFramebuffer framebuffer;
+    std::vector<VkFramebuffer> ui_framebuffers;
+
     VkDescriptorSetLayout descriptor_set_layout;
     VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
@@ -65,10 +64,4 @@ private:
     GPU_Mesh gpu_mesh;
     Vk_Image texture;
     VkSampler sampler;
-    Vk_Image output_image;
-    Copy_To_Swapchain copy_to_swapchain;
-
-    Vector3 camera_pos = Vector3(0, 0.5, 3.0);
-    Matrix3x4 model_transform;
-    Matrix3x4 view_transform;
 };

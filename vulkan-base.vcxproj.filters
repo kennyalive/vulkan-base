@@ -23,7 +23,6 @@
     <ClCompile Include="third-party\imgui\imgui_widgets.cpp">
       <Filter>third-party\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="src\copy_to_swapchain.cpp" />
     <ClCompile Include="third-party\imgui\impl\imgui_impl_glfw.cpp">
       <Filter>third-party\imgui\impl</Filter>
     </ClCompile>
@@ -95,7 +94,6 @@
     <ClInclude Include="third-party\imgui\imgui_internal.h">
       <Filter>third-party\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="src\copy_to_swapchain.h" />
     <ClInclude Include="third-party\imgui\impl\imgui_impl_glfw.h">
       <Filter>third-party\imgui\impl</Filter>
     </ClInclude>
@@ -167,9 +165,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="src\shaders\copy_to_swapchain.comp.glsl">
-      <Filter>shaders</Filter>
-    </CustomBuild>
     <CustomBuild Include="src\shaders\mesh.frag.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>

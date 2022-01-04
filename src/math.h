@@ -21,10 +21,3 @@ inline void hash_combine(std::size_t& seed, T value) {
 	std::hash<T> hasher;
 	seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
-
-inline float srgb_encode(float f) {
-	if (f <= 0.0031308f)
-		return 12.92f * f;
-	else
-		return 1.055f * std::pow(f, 1.f / 2.4f) - 0.055f;
-}

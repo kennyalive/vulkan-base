@@ -345,26 +345,25 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
         // don't support special case described in the spec
         assert(!(candidates.size() == 1 && candidates[0].format == VK_FORMAT_UNDEFINED));
 
-        // use non-srgb formats for swapchain images, so we can render to swapchain from compute,
-        // also it means we should do srgb encoding manually.
-        VkFormat supported_formats[] = {
-            VK_FORMAT_R8G8B8A8_UNORM,
-            VK_FORMAT_B8G8R8A8_UNORM
-        };
+		VkFormat supported_srgb_formats[] = {
+			VK_FORMAT_B8G8R8A8_SRGB,
+			VK_FORMAT_R8G8B8A8_SRGB,
+			VK_FORMAT_A8B8G8R8_SRGB_PACK32
+		};
 
-        [&candidates, &supported_formats]() {
-            for (VkFormat format : supported_formats) {
-                for (VkSurfaceFormatKHR surface_format : candidates) {
-                    if (surface_format.colorSpace != VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-                        continue;
-                    if (surface_format.format == format) {
-                        vk.surface_format = surface_format;
-                        return;
-                    }
-                }
-            }
-            error("Failed to find supported surface format");
-        } ();
+		[&candidates, &supported_srgb_formats]() {
+			for (VkFormat srgb_format : supported_srgb_formats) {
+				for (VkSurfaceFormatKHR surface_format : candidates) {
+					if (surface_format.colorSpace != VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+						continue;
+					if (surface_format.format == srgb_format) {
+						vk.surface_format = surface_format;
+						return;
+					}
+				}
+			}
+			error("Failed to find supported surface format");
+		} ();
     }
 
     vk_create_swapchain(true);
@@ -457,7 +456,7 @@ void vk_create_swapchain(bool vsync) {
     desc.imageColorSpace    = vk.surface_format.colorSpace;
     desc.imageExtent        = vk.surface_size;
     desc.imageArrayLayers   = 1;
-    desc.imageUsage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    desc.imageUsage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     desc.imageSharingMode   = VK_SHARING_MODE_EXCLUSIVE;
     desc.preTransform       = surface_caps.currentTransform;
     desc.compositeAlpha     = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;

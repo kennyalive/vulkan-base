@@ -113,7 +113,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\common.cpp" />
-    <ClCompile Include="src\copy_to_swapchain.cpp" />
     <ClCompile Include="src\triangle_mesh.cpp" />
     <ClCompile Include="src\vk_utils.cpp" />
     <ClCompile Include="src\linear_algebra.cpp" />
@@ -149,7 +148,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\common.h" />
-    <ClInclude Include="src\copy_to_swapchain.h" />
     <ClInclude Include="src\math.h" />
     <ClInclude Include="src\triangle_mesh.h" />
     <ClInclude Include="src\vk_utils.h" />
@@ -180,9 +178,6 @@
       <FileType>Document</FileType>
     </CustomBuild>
     <CustomBuild Include="src\shaders\mesh.vert.glsl">
-      <FileType>Document</FileType>
-    </CustomBuild>
-    <CustomBuild Include="src\shaders\copy_to_swapchain.comp.glsl">
       <FileType>Document</FileType>
     </CustomBuild>
   </ItemGroup>
