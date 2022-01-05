@@ -195,17 +195,17 @@ inline Vector3 cross(const Vector3& v1, const Vector3& v2) {
 }
 
 struct Matrix3x4 {
-	float a[3][4];
-	static const Matrix3x4 identity;
+    float a[3][4];
+    static const Matrix3x4 identity;
 
-	void set_column(int column_index, Vector3 c);
-	void set_row(int row_index, Vector4 r);
-	Vector4 get_row(int row) const;
+    void set_column(int column_index, Vector3 c);
+    void set_row(int row_index, Vector4 r);
+    Vector4 get_row(int row) const;
 };
 
 struct Matrix4x4 {
-	float a[4][4];
-	static const Matrix4x4 identity;
+    float a[4][4];
+    static const Matrix4x4 identity;
 };
 
 Matrix3x4 operator*(const Matrix3x4& m1, const Matrix3x4& m2);

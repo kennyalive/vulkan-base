@@ -18,13 +18,13 @@ struct GPU_Mesh {
 };
 
 struct Shader_Module {
-	Shader_Module(const std::string& spirv_file) {
-		handle = vk_load_spirv((get_data_directory() / spirv_file).string());
-	}
-	~Shader_Module() {
-		vkDestroyShaderModule(vk.device, handle, nullptr);
-	}
-	VkShaderModule handle;
+    Shader_Module(const std::string& spirv_file) {
+        handle = vk_load_spirv((get_data_directory() / spirv_file).string());
+    }
+    ~Shader_Module() {
+        vkDestroyShaderModule(vk.device, handle, nullptr);
+    }
+    VkShaderModule handle;
 };
 
 struct Descriptor_Writes {
