@@ -8,7 +8,7 @@ Prerequisites:
 * Microsoft Visual Studio
 * Vulkan SDK.
 
-Build step: 
+Build steps: 
 
 1. Open solution in Visual Studio IDE.
 2. Find F7 key on the keyboard and press it firmly.
