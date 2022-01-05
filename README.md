@@ -1,4 +1,4 @@
-# 🖖 vulkan-base
+# 🌋 vulkan-base 🖖
 
 * "Simple" Vulkan application that renders textured 3D model.
 * Highlights: setup of rasterization pipeline, timestamp queries, debug labels, imgui integration and more.
