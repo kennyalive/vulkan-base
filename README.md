@@ -15,6 +15,8 @@ Build steps:
 1. Open solution in Visual Studio IDE.
 2. Press F7 (Build Solution). That's all. All dependencies are included.
 
+In order to enable Vulkan validation layers specify ```--validation-layers``` command line argument.
+
 ![vulkan-base](https://user-images.githubusercontent.com/4964024/64047691-c812e280-cb6f-11e9-8f26-76c4ee8860cd.png)
 
 _"About 64KB of source code is a reasonable upper limit for the complexity of single triangle rasterization problems now envisioned."_
