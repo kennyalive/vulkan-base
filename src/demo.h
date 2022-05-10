@@ -50,9 +50,6 @@ private:
         GPU_Time_Interval* ui;
 	} gpu_times{};
 
-	VkRenderPass render_pass;
-	std::vector<VkFramebuffer> framebuffers;
-
     VkRenderPass ui_render_pass;
     std::vector<VkFramebuffer> ui_framebuffers;
 
