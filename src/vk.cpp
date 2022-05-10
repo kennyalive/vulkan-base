@@ -167,21 +167,19 @@ static void create_device(GLFWwindow* window) {
         queue_create_info.queueCount = 1;
         queue_create_info.pQueuePriorities = &priority;
 
-		VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
-			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
-		buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
+        VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
+        buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
 
-		VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
-			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES
-		};
-		dynamic_rendering_features.dynamicRendering = VK_TRUE;
+        VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
+        dynamic_rendering_features.dynamicRendering = VK_TRUE;
 
         VkPhysicalDeviceSynchronization2Features synchronization2_features{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES
-        };
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES };
         synchronization2_features.synchronization2 = VK_TRUE;
 
-		buffer_device_address_features.pNext = &dynamic_rendering_features;
+        buffer_device_address_features.pNext = &dynamic_rendering_features;
         dynamic_rendering_features.pNext = &synchronization2_features;
 
         VkPhysicalDeviceFeatures2 features2 { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };

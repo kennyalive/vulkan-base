@@ -152,6 +152,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         state.vertex_attributes[1].binding = 0;
         state.vertex_attributes[1].format = VK_FORMAT_R32G32_SFLOAT;
         state.vertex_attributes[1].offset = 12;
+
         state.vertex_attribute_count = 2;
 
         state.depth_attachment_format = get_depth_image_format();
