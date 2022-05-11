@@ -273,7 +273,7 @@ void Vk_Demo::run_frame() {
 	Matrix3x4 view_transform = look_at_transform(camera_pos, Vector3(0), Vector3(0, 1, 0));
     Matrix3x4 model_transform = rotate_y(Matrix3x4::identity, (float)sim_time * radians(20.0f));
     Matrix4x4 model_view_proj = projection_transform * view_transform * model_transform;
-    static_cast<Uniform_Buffer*>(mapped_uniform_buffer)->model_view_proj = model_view_proj;
+    memcpy(mapped_uniform_buffer, &model_view_proj, sizeof(model_view_proj));
 
     do_imgui();
     draw_frame();
@@ -299,7 +299,7 @@ void Vk_Demo::create_depth_buffer() {
         create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
         VmaAllocationCreateInfo alloc_create_info{};
-        alloc_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
 
         VK_CHECK(vmaCreateImage(vk.allocator, &create_info, &alloc_create_info, &depth_info.image, &depth_info.allocation, nullptr));
     }
