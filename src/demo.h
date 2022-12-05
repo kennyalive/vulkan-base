@@ -46,7 +46,8 @@ private:
     VkDescriptorSetLayout descriptor_set_layout;
     VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
-    VkDescriptorSet descriptor_set;
+    Vk_Buffer descriptor_buffer;
+    void* mapped_descriptor_buffer_ptr = nullptr;
     Vk_Buffer uniform_buffer;
     void* mapped_uniform_buffer;
     GPU_Mesh gpu_mesh;

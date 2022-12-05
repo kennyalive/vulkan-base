@@ -130,7 +130,8 @@ static void create_device(GLFWwindow* window) {
     // create VkDevice
     {
         std::vector<const char*> device_extensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         };
 
         uint32_t count = 0;
@@ -157,6 +158,7 @@ static void create_device(GLFWwindow* window) {
         queue_create_info.queueCount = 1;
         queue_create_info.pQueuePriorities = &priority;
 
+        // Define feature structures.
         VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
         buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
@@ -169,8 +171,14 @@ static void create_device(GLFWwindow* window) {
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES };
         synchronization2_features.synchronization2 = VK_TRUE;
 
+        VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_features{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT };
+        descriptor_buffer_features.descriptorBuffer = VK_TRUE;
+
+        // Chain feature structures together.
         buffer_device_address_features.pNext = &dynamic_rendering_features;
         dynamic_rendering_features.pNext = &synchronization2_features;
+        synchronization2_features.pNext = &descriptor_buffer_features;
 
         VkPhysicalDeviceFeatures2 features2 { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
         features2.pNext = &buffer_device_address_features;
@@ -914,6 +922,7 @@ VkPipeline vk_create_graphics_pipeline(
 
     VkGraphicsPipelineCreateInfo create_info { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
     create_info.pNext                                   = &rendering_create_info;
+    create_info.flags                                   = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
     create_info.stageCount                              = (uint32_t)std::size(shader_stages_state);
     create_info.pStages                                 = shader_stages_state;
     create_info.pVertexInputState                       = &vertex_input_state;
