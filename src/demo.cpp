@@ -361,10 +361,14 @@ void Vk_Demo::draw_rasterized_image() {
 }
 
 void Vk_Demo::draw_imgui() {
+    ImGui::Render();
+
     GPU_MARKER_SCOPE(vk.command_buffer, "draw_imgui");
     GPU_TIME_SCOPE(gpu_times.ui);
 
-    ImGui::Render();
+    vk_cmd_image_barrier(vk.command_buffer, vk.swapchain_info.images[vk.swapchain_image_index],
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL);
 
     VkRenderPassBeginInfo render_pass_begin_info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     render_pass_begin_info.renderPass = ui_render_pass;
