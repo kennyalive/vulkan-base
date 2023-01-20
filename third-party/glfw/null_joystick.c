@@ -1,7 +1,7 @@
 //========================================================================
-// GLFW 3.4 Win32 - www.glfw.org
+// GLFW 3.4 - www.glfw.org
 //------------------------------------------------------------------------
-// Copyright (c) 2006-2017 Camilla Löwy <elmindreda@glfw.org>
+// Copyright (c) 2016-2017 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -23,29 +23,36 @@
 //    distribution.
 //
 //========================================================================
+// It is fine to use C99 in this file because it will not be built with VS
+//========================================================================
 
-#define GLFW_WIN32_JOYSTICK_STATE         _GLFWjoystickWin32 win32;
-#define GLFW_WIN32_LIBRARY_JOYSTICK_STATE
+#include "internal.h"
 
-// Joystick element (axis, button or slider)
-//
-typedef struct _GLFWjoyobjectWin32
+
+//////////////////////////////////////////////////////////////////////////
+//////                       GLFW platform API                      //////
+//////////////////////////////////////////////////////////////////////////
+
+GLFWbool _glfwInitJoysticksNull(void)
 {
-    int                     offset;
-    int                     type;
-} _GLFWjoyobjectWin32;
+    return GLFW_TRUE;
+}
 
-// Win32-specific per-joystick data
-//
-typedef struct _GLFWjoystickWin32
+void _glfwTerminateJoysticksNull(void)
 {
-    _GLFWjoyobjectWin32*    objects;
-    int                     objectCount;
-    IDirectInputDevice8W*   device;
-    DWORD                   index;
-    GUID                    guid;
-} _GLFWjoystickWin32;
+}
 
-void _glfwDetectJoystickConnectionWin32(void);
-void _glfwDetectJoystickDisconnectionWin32(void);
+GLFWbool _glfwPollJoystickNull(_GLFWjoystick* js, int mode)
+{
+    return GLFW_FALSE;
+}
+
+const char* _glfwGetMappingNameNull(void)
+{
+    return "";
+}
+
+void _glfwUpdateGamepadGUIDNull(char* guid)
+{
+}
 

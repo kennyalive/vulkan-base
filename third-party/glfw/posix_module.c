@@ -1,7 +1,7 @@
 //========================================================================
-// GLFW 3.4 Win32 - www.glfw.org
+// GLFW 3.4 POSIX - www.glfw.org
 //------------------------------------------------------------------------
-// Copyright (c) 2006-2017 Camilla Löwy <elmindreda@glfw.org>
+// Copyright (c) 2021 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -23,29 +23,33 @@
 //    distribution.
 //
 //========================================================================
+// It is fine to use C99 in this file because it will not be built with VS
+//========================================================================
 
-#define GLFW_WIN32_JOYSTICK_STATE         _GLFWjoystickWin32 win32;
-#define GLFW_WIN32_LIBRARY_JOYSTICK_STATE
+#include "internal.h"
 
-// Joystick element (axis, button or slider)
-//
-typedef struct _GLFWjoyobjectWin32
+#if defined(GLFW_BUILD_POSIX_MODULE)
+
+#include <dlfcn.h>
+
+//////////////////////////////////////////////////////////////////////////
+//////                       GLFW platform API                      //////
+//////////////////////////////////////////////////////////////////////////
+
+void* _glfwPlatformLoadModule(const char* path)
 {
-    int                     offset;
-    int                     type;
-} _GLFWjoyobjectWin32;
+    return dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+}
 
-// Win32-specific per-joystick data
-//
-typedef struct _GLFWjoystickWin32
+void _glfwPlatformFreeModule(void* module)
 {
-    _GLFWjoyobjectWin32*    objects;
-    int                     objectCount;
-    IDirectInputDevice8W*   device;
-    DWORD                   index;
-    GUID                    guid;
-} _GLFWjoystickWin32;
+    dlclose(module);
+}
 
-void _glfwDetectJoystickConnectionWin32(void);
-void _glfwDetectJoystickDisconnectionWin32(void);
+GLFWproc _glfwPlatformGetModuleSymbol(void* module, const char* name)
+{
+    return dlsym(module, name);
+}
+
+#endif // GLFW_BUILD_POSIX_MODULE
 

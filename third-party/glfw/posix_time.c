@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.4 Win32 - www.glfw.org
+// GLFW 3.4 POSIX - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
 // Copyright (c) 2006-2017 Camilla Löwy <elmindreda@glfw.org>
@@ -24,12 +24,16 @@
 //    distribution.
 //
 //========================================================================
-// Please use C89 style variable declarations in this file because VS 2010
+// It is fine to use C99 in this file because it will not be built with VS
 //========================================================================
 
 #include "internal.h"
 
-#if defined(GLFW_BUILD_WIN32_TIMER)
+#if defined(GLFW_BUILD_POSIX_TIMER)
+
+#include <unistd.h>
+#include <sys/time.h>
+
 
 //////////////////////////////////////////////////////////////////////////
 //////                       GLFW platform API                      //////
@@ -37,20 +41,27 @@
 
 void _glfwPlatformInitTimer(void)
 {
-    QueryPerformanceFrequency((LARGE_INTEGER*) &_glfw.timer.win32.frequency);
+    _glfw.timer.posix.clock = CLOCK_REALTIME;
+    _glfw.timer.posix.frequency = 1000000000;
+
+#if defined(_POSIX_MONOTONIC_CLOCK)
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
+        _glfw.timer.posix.clock = CLOCK_MONOTONIC;
+#endif
 }
 
 uint64_t _glfwPlatformGetTimerValue(void)
 {
-    uint64_t value;
-    QueryPerformanceCounter((LARGE_INTEGER*) &value);
-    return value;
+    struct timespec ts;
+    clock_gettime(_glfw.timer.posix.clock, &ts);
+    return (uint64_t) ts.tv_sec * _glfw.timer.posix.frequency + (uint64_t) ts.tv_nsec;
 }
 
 uint64_t _glfwPlatformGetTimerFrequency(void)
 {
-    return _glfw.timer.win32.frequency;
+    return _glfw.timer.posix.frequency;
 }
 
-#endif // GLFW_BUILD_WIN32_TIMER
+#endif // GLFW_BUILD_POSIX_TIMER
 

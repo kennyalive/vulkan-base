@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.4 Win32 - www.glfw.org
+// GLFW 3.4 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2006-2017 Camilla Löwy <elmindreda@glfw.org>
 //
@@ -24,28 +24,9 @@
 //
 //========================================================================
 
-#define GLFW_WIN32_JOYSTICK_STATE         _GLFWjoystickWin32 win32;
-#define GLFW_WIN32_LIBRARY_JOYSTICK_STATE
-
-// Joystick element (axis, button or slider)
-//
-typedef struct _GLFWjoyobjectWin32
-{
-    int                     offset;
-    int                     type;
-} _GLFWjoyobjectWin32;
-
-// Win32-specific per-joystick data
-//
-typedef struct _GLFWjoystickWin32
-{
-    _GLFWjoyobjectWin32*    objects;
-    int                     objectCount;
-    IDirectInputDevice8W*   device;
-    DWORD                   index;
-    GUID                    guid;
-} _GLFWjoystickWin32;
-
-void _glfwDetectJoystickConnectionWin32(void);
-void _glfwDetectJoystickDisconnectionWin32(void);
+GLFWbool _glfwInitJoysticksNull(void);
+void _glfwTerminateJoysticksNull(void);
+GLFWbool _glfwPollJoystickNull(_GLFWjoystick* js, int mode);
+const char* _glfwGetMappingNameNull(void);
+void _glfwUpdateGamepadGUIDNull(char* guid);
 

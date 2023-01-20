@@ -1,6 +1,7 @@
 //========================================================================
 // GLFW 3.4 Win32 - www.glfw.org
 //------------------------------------------------------------------------
+// Copyright (c) 2002-2006 Marcus Geelnard
 // Copyright (c) 2006-2017 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
@@ -24,28 +25,24 @@
 //
 //========================================================================
 
-#define GLFW_WIN32_JOYSTICK_STATE         _GLFWjoystickWin32 win32;
-#define GLFW_WIN32_LIBRARY_JOYSTICK_STATE
+#include <windows.h>
 
-// Joystick element (axis, button or slider)
+#define GLFW_WIN32_TLS_STATE            _GLFWtlsWin32     win32;
+#define GLFW_WIN32_MUTEX_STATE          _GLFWmutexWin32   win32;
+
+// Win32-specific thread local storage data
 //
-typedef struct _GLFWjoyobjectWin32
+typedef struct _GLFWtlsWin32
 {
-    int                     offset;
-    int                     type;
-} _GLFWjoyobjectWin32;
+    GLFWbool            allocated;
+    DWORD               index;
+} _GLFWtlsWin32;
 
-// Win32-specific per-joystick data
+// Win32-specific mutex data
 //
-typedef struct _GLFWjoystickWin32
+typedef struct _GLFWmutexWin32
 {
-    _GLFWjoyobjectWin32*    objects;
-    int                     objectCount;
-    IDirectInputDevice8W*   device;
-    DWORD                   index;
-    GUID                    guid;
-} _GLFWjoystickWin32;
-
-void _glfwDetectJoystickConnectionWin32(void);
-void _glfwDetectJoystickDisconnectionWin32(void);
+    GLFWbool            allocated;
+    CRITICAL_SECTION    section;
+} _GLFWmutexWin32;
 
