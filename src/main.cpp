@@ -1,6 +1,7 @@
 #include "demo.h"
 #include "glfw/glfw3.h"
 #include <cassert>
+#include <cstring>
 
 struct Command_Line_Options {
     bool enable_validation_layers;

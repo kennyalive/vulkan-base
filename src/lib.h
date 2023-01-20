@@ -44,6 +44,10 @@ inline void hash_combine(std::size_t& seed, T value) {
     seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
+// Workaround for static_assert(false). It should be used like this: static_assert(dependent_false_v<T>)
+template<typename>
+inline constexpr bool dependent_false_v = false;
+
 #if 0
 #define START_TIMER { Timestamp t;
 #define STOP_TIMER(message) \

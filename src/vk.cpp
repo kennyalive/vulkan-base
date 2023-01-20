@@ -6,9 +6,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define GLFW_EXPOSE_NATIVE_WIN32
 #include "glfw/glfw3.h"
-#include "glfw/glfw3native.h"
 
 static const VkDescriptorPoolSize descriptor_pool_sizes[] = {
     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             16},
@@ -26,24 +24,16 @@ constexpr uint32_t max_timestamp_queries = 64;
 //
 Vk_Instance vk;
 
-#ifdef _WIN32
-VkSurfaceKHR platform_create_surface(VkInstance instance, GLFWwindow* window) {
-    VkWin32SurfaceCreateInfoKHR desc{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
-    desc.hinstance = ::GetModuleHandle(nullptr);
-    desc.hwnd = glfwGetWin32Window(window);
-    VkSurfaceKHR surface;
-    VK_CHECK(vkCreateWin32SurfaceKHR(instance, &desc, nullptr, &surface));
-    return surface;
-}
-#else
-#error platform_create_surface() is not implemented on this platform
-#endif
-
 static void create_instance(bool enable_validation_layers) {
     const char* instance_extensions[] = {
         VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#ifdef VK_USE_PLATFORM_WIN32_KHR
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+        VK_KHR_XCB_SURFACE_EXTENSION_NAME,
+#endif
     };
 
     uint32_t count = 0;
@@ -112,7 +102,7 @@ static void create_device(GLFWwindow* window) {
             error("Failed to find physical device that supports requested Vulkan API version");
     }
 
-    vk.surface = platform_create_surface(vk.instance, window);
+    VK_CHECK(glfwCreateWindowSurface(vk.instance, window, nullptr, &vk.surface));
 
     // select queue family
     {
@@ -1064,4 +1054,14 @@ uint32_t vk_allocate_timestamp_queries(uint32_t count) {
     uint32_t first_query = vk.timestamp_query_count;
     vk.timestamp_query_count += count;
     return first_query;
+}
+
+void set_debug_name_impl(VkObjectType object_type, uint64_t object_handle, const char* name) {
+    if (name) {
+        VkDebugUtilsObjectNameInfoEXT name_info { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        name_info.objectType = object_type;
+        name_info.objectHandle = object_handle;
+        name_info.pObjectName = name;
+        VK_CHECK(vkSetDebugUtilsObjectNameEXT(vk.device, &name_info));
+    }
 }
