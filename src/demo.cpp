@@ -1,5 +1,4 @@
 #include "demo.h"
-#include "triangle_mesh.h"
 
 #include "glfw/glfw3.h"
 #include "imgui/imgui.h"

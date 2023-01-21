@@ -1,6 +1,5 @@
 #pragma once
 
-#include "linear_algebra.h"
 #include "vk_utils.h"
 #include <chrono>
 

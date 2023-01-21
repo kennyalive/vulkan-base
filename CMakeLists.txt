@@ -7,11 +7,7 @@ set(PROGRAM_SOURCE
     src/demo.h
     src/lib.cpp
     src/lib.h
-    src/linear_algebra.cpp
-    src/linear_algebra.h
     src/main.cpp
-    src/triangle_mesh.cpp
-    src/triangle_mesh.h
     src/vk.cpp
     src/vk.h
     src/vk_utils.cpp
