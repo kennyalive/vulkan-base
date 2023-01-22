@@ -59,10 +59,10 @@ set(THIRD_PARTY_SOURCE
     third-party/imgui/imgui_internal.h
     third-party/imgui/imgui_tables.cpp
     third-party/imgui/imgui_widgets.cpp
-    third-party/imgui/impl/imgui_impl_glfw.cpp
-    third-party/imgui/impl/imgui_impl_glfw.h
-    third-party/imgui/impl/imgui_impl_vulkan.cpp
-    third-party/imgui/impl/imgui_impl_vulkan.h
+    third-party/imgui/imgui_impl_glfw.cpp
+    third-party/imgui/imgui_impl_glfw.h
+    third-party/imgui/imgui_impl_vulkan.cpp
+    third-party/imgui/imgui_impl_vulkan.h
     # volk
     third-party/volk/volk.c
     third-party/volk/volk.h
@@ -84,9 +84,6 @@ else()
 endif()
 
 target_include_directories(vulkan-base PRIVATE "${CMAKE_SOURCE_DIR}/third-party")
-
-# needed for imgui vulkan backend, it includes "imgui.h".
-target_include_directories(vulkan-base PRIVATE "${CMAKE_SOURCE_DIR}/third-party/imgui")
 
 set_target_properties(vulkan-base PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
