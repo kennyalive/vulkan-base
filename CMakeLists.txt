@@ -107,6 +107,7 @@ set_target_properties(vulkan-base PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     VS_DPI_AWARE "PerMonitor"
 )
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT vulkan-base)
 
 function(add_shader SHADER)
     get_filename_component(BASE_NAME ${SHADER} NAME_WLE)
