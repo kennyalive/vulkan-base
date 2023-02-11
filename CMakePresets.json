@@ -20,7 +20,12 @@
             "name": "ninja",
             "binaryDir": "${sourceDir}/build",
             "installDir": "${sourceDir}/install",
-            "generator": "Ninja Multi-Config"
+            "generator": "Ninja Multi-Config",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
         }
     ],
     "buildPresets": [
