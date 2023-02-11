@@ -48,15 +48,23 @@ set(THIRD_PARTY_SOURCE
     volk/volk.c
     volk/volk.h
 )
+source_group(TREE "${CMAKE_SOURCE_DIR}/third-party" FILES ${THIRD_PARTY_SOURCE})
 
 add_library(third-party ${THIRD_PARTY_SOURCE})
 target_compile_features(third-party PRIVATE cxx_std_17)
 target_include_directories(third-party PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    target_compile_definitions(third-party PUBLIC _GLFW_WIN32 VK_USE_PLATFORM_WIN32_KHR)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_compile_definitions(third-party PUBLIC _GLFW_X11 VK_USE_PLATFORM_XCB_KHR)
+else()
+    message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
+endif()
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(third-party PRIVATE
         -Wno-unused-parameter
-        -Wparentheses
         -Wno-sign-compare
         -Wno-missing-field-initializers
     )

@@ -18,24 +18,13 @@ set(SHADER_SOURCE
 )
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
-
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 source_group("" FILES ${PROGRAM_SOURCE})
-source_group(TREE "${CMAKE_SOURCE_DIR}/third-party" PREFIX third-party FILES ${THIRD_PARTY_SOURCE})
 source_group(TREE "${CMAKE_SOURCE_DIR}/src/shaders" PREFIX shaders FILES ${SHADER_SOURCE})
-
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    add_compile_definitions(_GLFW_WIN32 VK_USE_PLATFORM_WIN32_KHR)
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_compile_definitions(_GLFW_X11 VK_USE_PLATFORM_XCB_KHR)
-else()
-    message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
-endif()
 
 if (MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
     add_compile_options(/MP /W3)
-
     # Match MSVC Release
     add_compile_options($<$<CONFIG:Release>:/Zi>)
     add_compile_options($<$<CONFIG:Release>:/GL>)
@@ -46,14 +35,19 @@ if (MSVC)
     add_link_options($<$<CONFIG:Release>:/LTCG>)
 else()
     add_compile_options(-Wall -Wextra)
-    add_compile_options(-Wno-missing-field-initializers)
-    add_compile_options(-Wno-unused-parameter)
 endif()
 
 add_executable(vulkan-base ${PROGRAM_SOURCE} ${SHADER_SOURCE})
 target_compile_features(vulkan-base PRIVATE cxx_std_17)
 add_subdirectory(third-party)
 target_link_libraries(vulkan-base third-party)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(vulkan-base PRIVATE
+        -Wno-unused-parameter
+        -Wno-missing-field-initializers
+    )
+endif()
 
 set_target_properties(vulkan-base PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
