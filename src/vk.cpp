@@ -123,7 +123,7 @@ static void create_device(GLFWwindow* window) {
                 break;
             }
         }
-        if (vk.queue_family_index == -1)
+        if (vk.queue_family_index == uint32_t(-1))
             error("Vulkan: failed to find queue family");
     }
 

@@ -15,6 +15,12 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
+        },
+        {
+            "name": "ninja",
+            "binaryDir": "${sourceDir}/build",
+            "installDir": "${sourceDir}/install",
+            "generator": "Ninja Multi-Config"
         }
     ],
     "buildPresets": [
@@ -28,6 +34,18 @@
             "name": "vs-release",
             "displayName": "Release",
             "configurePreset": "vs",
+            "configuration": "Release"
+        },
+        {
+            "name": "ninja-debug",
+            "displayName": "Debug",
+            "configurePreset": "ninja",
+            "configuration": "Debug"
+        },
+        {
+            "name": "ninja-release",
+            "displayName": "Release",
+            "configurePreset": "ninja",
             "configuration": "Release"
         }
     ]

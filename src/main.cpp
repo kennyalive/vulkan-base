@@ -44,7 +44,7 @@ static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int act
     if (action == GLFW_PRESS) {
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
-        } else if (key == GLFW_KEY_F11 || key == GLFW_KEY_ENTER && mods == GLFW_MOD_ALT) {
+        } else if (key == GLFW_KEY_F11 || (key == GLFW_KEY_ENTER && mods == GLFW_MOD_ALT)) {
             static int last_window_xpos, last_window_ypos;
             static int last_window_width, last_window_height;
 
