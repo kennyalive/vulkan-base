@@ -1,8 +1,11 @@
 # 🌋 vulkan-base 🖖
 
-* A simple Vulkan application that renders a textured 3D model.
-* Highlights: setup of rasterization pipeline, timestamp queries, debug labels, imgui integration.
-* For basic Vulkan ray tracing check this repository: https://github.com/kennyalive/vulkan-raytracing
+This is a basic Vulkan application that renders a textured 3D model.
+The program shows how to use the following features:
+* setup of rasterization pipeline
+* timestamp queries
+* debug labels
+* imgui integration.
 
 Prerequisites:
 * CMake
@@ -16,5 +19,7 @@ Build steps:
 Supported platforms: Windows, Linux.
 
 In order to enable Vulkan validation layers specify ```--validation-layers``` command line argument.
+
+For basic Vulkan ray tracing check this repository: https://github.com/kennyalive/vulkan-ray-tracing
 
 ![vulkan-base](https://user-images.githubusercontent.com/4964024/64047691-c812e280-cb6f-11e9-8f26-76c4ee8860cd.png)
