@@ -174,8 +174,6 @@ struct Vk_Instance {
     VkCommandBuffer                 command_buffer; // command_buffers[frame_index]
     int                             frame_index;
 
-    VkDescriptorPool                descriptor_pool;
-
     VkSemaphore                     image_acquired_semaphore[2];
     VkSemaphore                     rendering_finished_semaphore[2];
     VkFence                         frame_fence[2];
@@ -191,6 +189,8 @@ struct Vk_Instance {
     uint8_t*                        staging_buffer_ptr; // pointer to mapped staging buffer
 
     VkDebugUtilsMessengerEXT        debug_utils_messenger;
+
+    VkDescriptorPool                imgui_descriptor_pool;
 };
 
 extern Vk_Instance vk;

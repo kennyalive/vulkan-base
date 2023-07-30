@@ -8,14 +8,6 @@
 
 #include "glfw/glfw3.h"
 
-static const VkDescriptorPoolSize descriptor_pool_sizes[] = {
-    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             16},
-    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,              16},
-    {VK_DESCRIPTOR_TYPE_SAMPLER,                    16},
-    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,              16},
-};
-
-constexpr uint32_t max_descriptor_sets = 64;
 constexpr uint32_t max_timestamp_queries = 64;
 
 //
@@ -329,17 +321,16 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
 
     // Descriptor pool.
     {
-        std::vector<VkDescriptorPoolSize> pool_sizes;
-        for (size_t i = 0; i < std::size(descriptor_pool_sizes); i++) {
-            pool_sizes.push_back(descriptor_pool_sizes[i]);
-        }
+        const VkDescriptorPoolSize pool_size_info = {
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            1
+        };
         VkDescriptorPoolCreateInfo desc{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-        desc.maxSets = max_descriptor_sets;
-        desc.poolSizeCount = (uint32_t)pool_sizes.size();
-        desc.pPoolSizes = pool_sizes.data();
-
-        VK_CHECK(vkCreateDescriptorPool(vk.device, &desc, nullptr, &vk.descriptor_pool));
-        vk_set_debug_name(vk.descriptor_pool, "descriptor_pool");
+        desc.maxSets = 1;
+        desc.poolSizeCount = 1;
+        desc.pPoolSizes = &pool_size_info;
+        VK_CHECK(vkCreateDescriptorPool(vk.device, &desc, nullptr, &vk.imgui_descriptor_pool));
+        vk_set_debug_name(vk.imgui_descriptor_pool, "imgui_descriptor_pool");
     }
 
     // Select surface format.
@@ -396,7 +387,6 @@ void vk_shutdown() {
 
     vkDestroyCommandPool(vk.device, vk.command_pools[0], nullptr);
     vkDestroyCommandPool(vk.device, vk.command_pools[1], nullptr);
-    vkDestroyDescriptorPool(vk.device, vk.descriptor_pool, nullptr);
     vkDestroySemaphore(vk.device, vk.image_acquired_semaphore[0], nullptr);
     vkDestroySemaphore(vk.device, vk.image_acquired_semaphore[1], nullptr);
     vkDestroySemaphore(vk.device, vk.rendering_finished_semaphore[0], nullptr);
@@ -405,6 +395,7 @@ void vk_shutdown() {
     vkDestroyFence(vk.device, vk.frame_fence[1], nullptr);
     vkDestroyQueryPool(vk.device, vk.timestamp_query_pools[0], nullptr);
     vkDestroyQueryPool(vk.device, vk.timestamp_query_pools[1], nullptr);
+    vkDestroyDescriptorPool(vk.device, vk.imgui_descriptor_pool, nullptr);
     vk_destroy_swapchain();
     vmaDestroyAllocator(vk.allocator);
     vkDestroyDevice(vk.device, nullptr);

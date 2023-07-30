@@ -228,7 +228,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         init_info.Device = vk.device;
         init_info.QueueFamily = vk.queue_family_index;
         init_info.Queue = vk.queue;
-        init_info.DescriptorPool = vk.descriptor_pool;
+        init_info.DescriptorPool = vk.imgui_descriptor_pool;
 		init_info.MinImageCount = 2;
 		init_info.ImageCount = (uint32_t)vk.swapchain_info.images.size();
         ImGui_ImplVulkan_Init(&init_info, ui_render_pass);
