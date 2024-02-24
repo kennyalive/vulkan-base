@@ -89,13 +89,13 @@ void vk_execute(VkCommandPool command_pool, VkQueue queue, std::function<void(Vk
 
 // Barrier for all subresources of non-depth image.
 void vk_cmd_image_barrier(VkCommandBuffer command_buffer, VkImage image,
-    VkPipelineStageFlags src_stage_mask, VkAccessFlags src_access_mask, VkImageLayout old_layout,
-    VkPipelineStageFlags dst_stage_mask, VkAccessFlags dst_access_mask, VkImageLayout new_layout);
+    VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkImageLayout old_layout,
+    VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout);
 
 // General image barrier.
 void vk_cmd_image_barrier_for_subresource(VkCommandBuffer command_buffer, VkImage image, const VkImageSubresourceRange& subresource_range,
-    VkPipelineStageFlags src_stage_mask, VkAccessFlags src_access_mask, VkImageLayout old_layout,
-    VkPipelineStageFlags dst_stage_mask, VkAccessFlags dst_access_mask, VkImageLayout new_layout);
+    VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkImageLayout old_layout,
+    VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout);
 
 
 uint32_t vk_allocate_timestamp_queries(uint32_t count);

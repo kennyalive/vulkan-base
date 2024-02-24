@@ -653,16 +653,16 @@ Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate
             subresource_range.baseMipLevel = 0;
 
             vk_cmd_image_barrier_for_subresource(command_buffer, image.handle, subresource_range,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             vkCmdCopyBufferToImage(command_buffer, vk.staging_buffer, image.handle,
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
             if (mip_levels == 1) {
                 vk_cmd_image_barrier_for_subresource(command_buffer, image.handle, subresource_range,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                 return;
             }
 
@@ -689,13 +689,13 @@ Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate
 
                 subresource_range.baseMipLevel = i-1;
                 vk_cmd_image_barrier_for_subresource(command_buffer, image.handle, subresource_range,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
                 subresource_range.baseMipLevel = i;
                 vk_cmd_image_barrier_for_subresource(command_buffer, image.handle, subresource_range,
-                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                    VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
                 vkCmdBlitImage(command_buffer,
                     image.handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -704,14 +704,14 @@ Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate
 
                 subresource_range.baseMipLevel = i-1;
                 vk_cmd_image_barrier_for_subresource(command_buffer, image.handle, subresource_range,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
 
             subresource_range.baseMipLevel = mip_levels - 1;
             vk_cmd_image_barrier_for_subresource(command_buffer, image.handle, subresource_range,
-                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         });
     }
 
@@ -951,20 +951,28 @@ void vk_begin_frame() {
 void vk_end_frame() {
     VK_CHECK(vkEndCommandBuffer(vk.command_buffer));
 
-    const VkPipelineStageFlags wait_dst_stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSemaphoreSubmitInfo wait_info{ VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO };
+    wait_info.semaphore = vk.image_acquired_semaphore[vk.frame_index];
+    wait_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    VkSubmitInfo submit_info { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-    submit_info.waitSemaphoreCount   = 1;
-    submit_info.pWaitSemaphores      = &vk.image_acquired_semaphore[vk.frame_index];
-    submit_info.pWaitDstStageMask    = &wait_dst_stage_mask;
-    submit_info.commandBufferCount   = 1;
-    submit_info.pCommandBuffers      = &vk.command_buffer;
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores    = &vk.rendering_finished_semaphore[vk.frame_index];
+    VkCommandBufferSubmitInfo cmd_info{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO };
+    cmd_info.commandBuffer = vk.command_buffer;
+
+    VkSemaphoreSubmitInfo signal_info{ VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO };
+    signal_info.semaphore = vk.rendering_finished_semaphore[vk.frame_index];
+    signal_info.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+
+    VkSubmitInfo2 submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO_2 };
+    submit_info.waitSemaphoreInfoCount = 1;
+    submit_info.pWaitSemaphoreInfos = &wait_info;
+    submit_info.commandBufferInfoCount = 1;
+    submit_info.pCommandBufferInfos = &cmd_info;
+    submit_info.signalSemaphoreInfoCount = 1;
+    submit_info.pSignalSemaphoreInfos = &signal_info;
 
     START_TIMER
-    VK_CHECK(vkQueueSubmit(vk.queue, 1, &submit_info, vk.frame_fence[vk.frame_index]));
-    STOP_TIMER("vkQueueSubmit")
+    VK_CHECK(vkQueueSubmit2(vk.queue, 1, &submit_info, vk.frame_fence[vk.frame_index]));
+    STOP_TIMER("vkQueueSubmit2")
 
     VkPresentInfoKHR present_info { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
     present_info.waitSemaphoreCount = 1;
@@ -997,55 +1005,63 @@ void vk_execute(VkCommandPool command_pool, VkQueue queue, std::function<void(Vk
     recorder(command_buffer);
     VK_CHECK(vkEndCommandBuffer(command_buffer));
 
-    VkSubmitInfo submit_info { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-    submit_info.commandBufferCount  = 1;
-    submit_info.pCommandBuffers     = &command_buffer;
+    VkCommandBufferSubmitInfo cmd_info{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO };
+    cmd_info.commandBuffer = command_buffer;
 
-    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE));
+    VkSubmitInfo2 submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO_2 };
+    submit_info.commandBufferInfoCount = 1;
+    submit_info.pCommandBufferInfos = &cmd_info;
+
+    VK_CHECK(vkQueueSubmit2(queue, 1, &submit_info, VK_NULL_HANDLE));
     VK_CHECK(vkQueueWaitIdle(queue));
     vkFreeCommandBuffers(vk.device, command_pool, 1, &command_buffer);
 }
 
 void vk_cmd_image_barrier(VkCommandBuffer command_buffer, VkImage image,
-    VkPipelineStageFlags src_stage_mask, VkAccessFlags src_access_mask, VkImageLayout old_layout,
-    VkPipelineStageFlags dst_stage_mask, VkAccessFlags dst_access_mask, VkImageLayout new_layout)
+    VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkImageLayout old_layout,
+    VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout)
 {
-    VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    VkImageMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+    barrier.srcStageMask = src_stage_mask;
     barrier.srcAccessMask = src_access_mask;
+    barrier.dstStageMask = dst_stage_mask;
     barrier.dstAccessMask = dst_access_mask;
     barrier.oldLayout = old_layout;
     barrier.newLayout = new_layout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
-
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-    vkCmdPipelineBarrier(command_buffer, src_stage_mask, dst_stage_mask, 0,
-        0, nullptr, 0, nullptr, 1, &barrier);
+    VkDependencyInfo dep_info{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep_info.imageMemoryBarrierCount = 1;
+    dep_info.pImageMemoryBarriers = &barrier;
+
+    vkCmdPipelineBarrier2(command_buffer, &dep_info);
 }
 
 void vk_cmd_image_barrier_for_subresource(
     VkCommandBuffer command_buffer, VkImage image, const VkImageSubresourceRange& subresource_range,
-    VkPipelineStageFlags src_stage_mask, VkAccessFlags src_access_mask, VkImageLayout old_layout,
-    VkPipelineStageFlags dst_stage_mask, VkAccessFlags dst_access_mask, VkImageLayout new_layout)
+    VkPipelineStageFlags2 src_stage_mask, VkAccessFlags2 src_access_mask, VkImageLayout old_layout,
+    VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask, VkImageLayout new_layout)
 {
-    VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    VkImageMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+    barrier.srcStageMask = src_stage_mask;
     barrier.srcAccessMask = src_access_mask;
+    barrier.dstStageMask = dst_stage_mask;
     barrier.dstAccessMask = dst_access_mask;
     barrier.oldLayout = old_layout;
     barrier.newLayout = new_layout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
     barrier.subresourceRange = subresource_range;
 
-    vkCmdPipelineBarrier(command_buffer, src_stage_mask, dst_stage_mask, 0,
-        0, nullptr, 0, nullptr, 1, &barrier);
+    VkDependencyInfo dep_info{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep_info.imageMemoryBarrierCount = 1;
+    dep_info.pImageMemoryBarriers = &barrier;
+
+    vkCmdPipelineBarrier2(command_buffer, &dep_info);
 }
 
 uint32_t vk_allocate_timestamp_queries(uint32_t count) {
