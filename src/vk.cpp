@@ -326,6 +326,7 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
             1
         };
         VkDescriptorPoolCreateInfo desc{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+        desc.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         desc.maxSets = 1;
         desc.poolSizeCount = 1;
         desc.pPoolSizes = &pool_size_info;
