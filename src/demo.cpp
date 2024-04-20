@@ -5,12 +5,6 @@
 #include "imgui/imgui_impl_vulkan.h"
 #include "imgui/imgui_impl_glfw.h"
 
-namespace {
-struct Uniform_Buffer {
-    Matrix4x4 model_view_proj;
-};
-}
-
 static VkFormat get_depth_image_format() {
     VkFormat candidates[2] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_X8_D24_UNORM_PACK32 };
     for (auto format : candidates) {
@@ -77,7 +71,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         vk_set_debug_name(sampler, "diffuse_texture_sampler");
     }
 
-    uniform_buffer = vk_create_mapped_buffer(static_cast<VkDeviceSize>(sizeof(Uniform_Buffer)),
+    uniform_buffer = vk_create_mapped_buffer(static_cast<VkDeviceSize>(sizeof(Matrix4x4)),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &mapped_uniform_buffer, "uniform_buffer");
 
     descriptor_set_layout = Descriptor_Set_Layout()
@@ -91,7 +85,6 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         VkPipelineLayoutCreateInfo create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         create_info.setLayoutCount = 1;
         create_info.pSetLayouts = &descriptor_set_layout;
-
 		VK_CHECK(vkCreatePipelineLayout(vk.device, &create_info, nullptr, &pipeline_layout));
         vk_set_debug_name(pipeline_layout, "pipeline_layout");
     }
@@ -147,7 +140,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         {
             VkDescriptorAddressInfoEXT address_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT };
             address_info.address = uniform_buffer.device_address;
-            address_info.range = sizeof(Uniform_Buffer);
+            address_info.range = sizeof(Matrix4x4);
 
             VkDescriptorGetInfoEXT descriptor_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT };
             descriptor_info.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -221,13 +214,13 @@ void Vk_Demo::shutdown() {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-
+    release_resolution_dependent_resources();
     gpu_mesh.destroy();
     texture.destroy();
-    vkDestroySampler(vk.device, sampler, nullptr);
-    release_resolution_dependent_resources();
     descriptor_buffer.destroy();
     uniform_buffer.destroy();
+
+    vkDestroySampler(vk.device, sampler, nullptr);
     vkDestroyDescriptorSetLayout(vk.device, descriptor_set_layout, nullptr);
     vkDestroyPipelineLayout(vk.device, pipeline_layout, nullptr);
     vkDestroyPipeline(vk.device, pipeline, nullptr);
