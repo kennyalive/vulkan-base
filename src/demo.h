@@ -1,6 +1,7 @@
 #pragma once
 
-#include "vk_utils.h"
+#include "lib.h"
+#include "vk.h"
 #include <chrono>
 
 struct GLFWwindow;
@@ -9,7 +10,6 @@ class Vk_Demo {
 public:
     void initialize(GLFWwindow* glfw_window, bool enable_validation_layers);
     void shutdown();
-
     void release_resolution_dependent_resources();
     void restore_resolution_dependent_resources();
     bool vsync_enabled() const { return vsync; }
@@ -43,8 +43,20 @@ private:
     Vk_Buffer descriptor_buffer;
     void* mapped_descriptor_buffer_ptr = nullptr;
     Vk_Buffer uniform_buffer;
-    void* mapped_uniform_buffer;
-    GPU_Mesh gpu_mesh;
+    void* mapped_uniform_buffer = nullptr;
     Vk_Image texture;
     VkSampler sampler;
+
+    struct {
+        Vk_Buffer vertex_buffer;
+        Vk_Buffer index_buffer;
+        uint32_t vertex_count = 0;
+        uint32_t index_count = 0;
+        void destroy() {
+            vertex_buffer.destroy();
+            index_buffer.destroy();
+            vertex_count = 0;
+            index_count = 0;
+        }
+    } gpu_mesh;
 };

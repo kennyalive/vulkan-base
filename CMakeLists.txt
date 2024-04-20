@@ -9,8 +9,6 @@ set(PROGRAM_SOURCE
     src/main.cpp
     src/vk.cpp
     src/vk.h
-    src/vk_utils.cpp
-    src/vk_utils.h
 )
 set(SHADER_SOURCE
     src/shaders/mesh.vert.glsl
