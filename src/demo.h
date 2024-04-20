@@ -16,10 +16,8 @@ public:
     void run_frame();
 
 private:
-    void draw_frame();
-    void draw_rasterized_image();
-    void draw_imgui();
     void do_imgui();
+    void draw_frame();
 
 private:
     using Clock = std::chrono::high_resolution_clock;
@@ -29,19 +27,15 @@ private:
     bool vsync = true;
     bool animate = false;
 
-	Time last_frame_time{};
+    Time last_frame_time{};
     double sim_time = 0;
-	Vector3 camera_pos = Vector3(0, 0.5, 3.0);
+    Vector3 camera_pos = Vector3(0, 0.5, 3.0);
 
     GPU_Time_Keeper time_keeper;
     struct {
         GPU_Time_Interval* frame;
-        GPU_Time_Interval* draw;
-        GPU_Time_Interval* ui;
-	} gpu_times{};
+    } gpu_times{};
 
-    VkRenderPass ui_render_pass;
-    std::vector<VkFramebuffer> ui_framebuffers;
     Vk_Image depth_buffer_image;
     VkDescriptorSetLayout descriptor_set_layout;
     VkPipelineLayout pipeline_layout;
