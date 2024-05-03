@@ -5,6 +5,8 @@
 #include "imgui/imgui_impl_vulkan.h"
 #include "imgui/imgui_impl_glfw.h"
 
+#include <array>
+
 static VkFormat get_depth_image_format() {
     VkFormat candidates[2] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_X8_D24_UNORM_PACK32 };
     for (auto format : candidates) {
@@ -19,7 +21,60 @@ static VkFormat get_depth_image_format() {
 }
 
 void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
-    vk_initialize(window, enable_validation_layers);
+    Vk_Init_Params vk_init_params;
+    vk_init_params.enable_validation_layer = enable_validation_layers;
+
+    std::array instance_extensions = {
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+        VK_KHR_XCB_SURFACE_EXTENSION_NAME,
+#endif
+    };
+    std::array device_extensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
+    };
+    vk_init_params.instance_extensions = std::span{ instance_extensions };
+    vk_init_params.device_extensions = std::span{ device_extensions };
+
+    // Specify required features.
+    VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
+    buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
+
+    VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
+    dynamic_rendering_features.dynamicRendering = VK_TRUE;
+
+    VkPhysicalDeviceSynchronization2Features synchronization2_features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES };
+    synchronization2_features.synchronization2 = VK_TRUE;
+
+    VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT };
+    descriptor_buffer_features.descriptorBuffer = VK_TRUE;
+
+    VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+
+    // Chain feature structures.
+    buffer_device_address_features.pNext = &dynamic_rendering_features;
+    dynamic_rendering_features.pNext = &synchronization2_features;
+    synchronization2_features.pNext = &descriptor_buffer_features;
+    features2.pNext = &buffer_device_address_features;
+    vk_init_params.device_create_info_pnext = (const VkBaseInStructure*)&features2;
+
+    std::array surface_formats = {
+        VK_FORMAT_B8G8R8A8_SRGB,
+        VK_FORMAT_R8G8B8A8_SRGB,
+    };
+    vk_init_params.supported_surface_formats = std::span{ surface_formats };
+    vk_init_params.surface_usage_flags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    vk_initialize(window, vk_init_params);
 
     // Device properties.
     {
@@ -114,6 +169,8 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
         state.vertex_attribute_count = 2;
 
+        state.color_attachment_formats[0] = vk.surface_format.format;
+        state.color_attachment_count = 1;
         state.depth_attachment_format = get_depth_image_format();
 
         pipeline = vk_create_graphics_pipeline(state, pipeline_layout, vertex_shader.handle, fragment_shader.handle);

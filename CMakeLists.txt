@@ -36,7 +36,7 @@ else()
 endif()
 
 add_executable(vulkan-base ${PROGRAM_SOURCE} ${SHADER_SOURCE})
-target_compile_features(vulkan-base PRIVATE cxx_std_17)
+target_compile_features(vulkan-base PRIVATE cxx_std_20)
 add_subdirectory(third-party)
 target_link_libraries(vulkan-base third-party)
 

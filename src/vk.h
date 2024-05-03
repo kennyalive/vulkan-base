@@ -5,18 +5,30 @@
 #endif
 
 #include "volk/volk.h"
-#include "vulkan/vk_enum_string_helper.h"
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 #include "vma/vk_mem_alloc.h"
 
 #include <functional>
+#include <span>
 #include <string>
 #include <vector>
 
-#define VK_CHECK_RESULT(result) if (result < 0) error(std::string("Error: ") + string_VkResult(result));
+const char* get_VkResult_string(VkResult result);
+#define VK_CHECK_RESULT(result) if (result < 0) error(std::string("Error: ") + get_VkResult_string(result));
 #define VK_CHECK(function_call) { VkResult result = function_call;  VK_CHECK_RESULT(result); }
+
+struct Vk_Init_Params {
+    bool enable_validation_layer = false;
+    int physical_device_index = -1;
+    bool vsync = false;
+    std::span<const char*> instance_extensions;
+    std::span<const char*> device_extensions;
+    const VkBaseInStructure* device_create_info_pnext = nullptr;
+    std::span<VkFormat> supported_surface_formats;
+    VkImageUsageFlags surface_usage_flags = 0;
+};
 
 struct Vk_Image {
     VkImage handle = VK_NULL_HANDLE;
@@ -55,7 +67,7 @@ struct GLFWwindow;
 
 // Initializes VK_Instance structure.
 // After calling this function we get fully functional vulkan subsystem.
-void vk_initialize(GLFWwindow* window, bool enable_validation_layers);
+void vk_initialize(GLFWwindow* window, const Vk_Init_Params& init_params);
 
 // Shutdown vulkan subsystem by releasing resources acquired by Vk_Instance.
 void vk_shutdown();
@@ -65,11 +77,20 @@ void vk_create_swapchain(bool vsync);
 void vk_destroy_swapchain();
 
 void vk_ensure_staging_buffer_allocation(VkDeviceSize size);
-Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const void* data = nullptr, const char* name = nullptr);
-Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name = nullptr);
-Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate_mipmaps, const uint8_t* pixels, int bytes_per_pixel, const char*  name);
+
+// Buffers
+Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
+    const void* data = nullptr, const char* name = nullptr);
+Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage, uint32_t min_alignment,
+    const void* data = nullptr, const char* name = nullptr);
+Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
+    void** buffer_ptr, const char* name = nullptr);
+
+// Images
 Vk_Image vk_create_image(int width, int height, VkFormat format, VkImageUsageFlags usage_flags, const char* name);
+Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate_mipmaps, const uint8_t* pixels, int bytes_per_pixel, const char*  name);
 Vk_Image vk_load_texture(const std::string& texture_file);
+
 VkShaderModule vk_load_spirv(const std::string& spirv_file);
 
 Vk_Graphics_Pipeline_State get_default_graphics_pipeline_state();
@@ -100,8 +121,13 @@ void vk_cmd_image_barrier_for_subresource(VkCommandBuffer command_buffer, VkImag
 
 uint32_t vk_allocate_timestamp_queries(uint32_t count);
 
+// Workaround for static_assert(false). It should be used like this: static_assert(dependent_false_v<T>)
+template<typename>
+inline constexpr bool dependent_false_v = false;
+
 template <typename Vk_Object_Type>
-void vk_set_debug_name(Vk_Object_Type object, const char* name) {
+void vk_set_debug_name(Vk_Object_Type object, const char* name)
+{
     VkObjectType object_type;
 
 #define IF_TYPE_THEN_ENUM(vk_type, vk_object_type_enum) \
@@ -163,6 +189,7 @@ struct Vk_Instance {
     VmaAllocator                    allocator;
 
     VkSurfaceKHR                    surface;
+    VkImageUsageFlags               surface_usage_flags;
     VkSurfaceFormatKHR              surface_format;
     VkExtent2D                      surface_size;
     Swapchain_Info                  swapchain_info;

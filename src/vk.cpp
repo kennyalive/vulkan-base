@@ -8,6 +8,13 @@
 
 #include "glfw/glfw3.h"
 
+#include "vulkan/vk_enum_string_helper.h"
+
+const char* get_VkResult_string(VkResult result)
+{
+    return string_VkResult(result);
+}
+
 constexpr uint32_t max_timestamp_queries = 64;
 
 //
@@ -16,18 +23,8 @@ constexpr uint32_t max_timestamp_queries = 64;
 //
 Vk_Instance vk;
 
-static void create_instance(bool enable_validation_layers) {
-    const char* instance_extensions[] = {
-        VK_KHR_SURFACE_EXTENSION_NAME,
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
-#endif
-#ifdef VK_USE_PLATFORM_XCB_KHR
-        VK_KHR_XCB_SURFACE_EXTENSION_NAME,
-#endif
-    };
-
+static void create_instance(const std::span<const char*>& instance_extensions, bool enable_validation_layers)
+{
     uint32_t count = 0;
     VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr));
     std::vector<VkExtensionProperties> extension_properties(count);
@@ -50,8 +47,8 @@ static void create_instance(bool enable_validation_layers) {
 
     VkInstanceCreateInfo instance_create_info { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
     instance_create_info.pApplicationInfo = &app_info;
-    instance_create_info.enabledExtensionCount = sizeof(instance_extensions)/sizeof(instance_extensions[0]);
-    instance_create_info.ppEnabledExtensionNames = instance_extensions;
+    instance_create_info.enabledExtensionCount = uint32_t(instance_extensions.size());
+    instance_create_info.ppEnabledExtensionNames = instance_extensions.data();
 
     if (enable_validation_layers) {
         static const char* layer_names[] = {
@@ -64,7 +61,8 @@ static void create_instance(bool enable_validation_layers) {
     VK_CHECK(vkCreateInstance(&instance_create_info, nullptr, &vk.instance));
 }
 
-static void create_device(GLFWwindow* window) {
+static void create_device(const Vk_Init_Params& params, GLFWwindow* window)
+{
     // select physical device
     {
         uint32_t count;
@@ -95,6 +93,7 @@ static void create_device(GLFWwindow* window) {
     }
 
     VK_CHECK(glfwCreateWindowSurface(vk.instance, window, nullptr, &vk.surface));
+    vk.surface_usage_flags = params.surface_usage_flags;
 
     // select queue family
     {
@@ -121,11 +120,6 @@ static void create_device(GLFWwindow* window) {
 
     // create VkDevice
     {
-        std::vector<const char*> device_extensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
-        };
-
         uint32_t count = 0;
         VK_CHECK(vkEnumerateDeviceExtensionProperties(vk.physical_device, nullptr, &count, nullptr));
         std::vector<VkExtensionProperties> extension_properties(count);
@@ -139,7 +133,7 @@ static void create_device(GLFWwindow* window) {
             }
             return false;
         };
-        for (auto required_extension : device_extensions) {
+        for (auto required_extension : params.device_extensions) {
             if (!is_extension_supported(required_extension))
                 error("Vulkan: required device extension is not available: " + std::string(required_extension));
         }
@@ -150,37 +144,12 @@ static void create_device(GLFWwindow* window) {
         queue_create_info.queueCount = 1;
         queue_create_info.pQueuePriorities = &priority;
 
-        // Define feature structures.
-        VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
-        buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
-
-        VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
-        dynamic_rendering_features.dynamicRendering = VK_TRUE;
-
-        VkPhysicalDeviceSynchronization2Features synchronization2_features{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES };
-        synchronization2_features.synchronization2 = VK_TRUE;
-
-        VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_features{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT };
-        descriptor_buffer_features.descriptorBuffer = VK_TRUE;
-
-        // Chain feature structures together.
-        buffer_device_address_features.pNext = &dynamic_rendering_features;
-        dynamic_rendering_features.pNext = &synchronization2_features;
-        synchronization2_features.pNext = &descriptor_buffer_features;
-
-        VkPhysicalDeviceFeatures2 features2 { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-        features2.pNext = &buffer_device_address_features;
-
         VkDeviceCreateInfo device_create_info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
-        device_create_info.pNext = &features2;
+        device_create_info.pNext = params.device_create_info_pnext;
         device_create_info.queueCreateInfoCount = 1;
         device_create_info.pQueueCreateInfos = &queue_create_info;
-        device_create_info.enabledExtensionCount = (uint32_t)device_extensions.size();
-        device_create_info.ppEnabledExtensionNames = device_extensions.data();
+        device_create_info.enabledExtensionCount = (uint32_t)params.device_extensions.size();
+        device_create_info.ppEnabledExtensionNames = params.device_extensions.data();
 
         VK_CHECK(vkCreateDevice(vk.physical_device, &device_create_info, nullptr, &vk.device));
     }
@@ -212,7 +181,7 @@ void Vk_Buffer::destroy() {
     *this = Vk_Buffer{};
 }
 
-void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
+void vk_initialize(GLFWwindow* window, const Vk_Init_Params& init_params) {
     VK_CHECK(volkInitialize());
     uint32_t instance_version = volkGetInstanceVersion();
 
@@ -224,7 +193,7 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
     if (!instance_version_higher_than_or_equal_to_1_1)
         error("The supported instance version is Vulkan 1.1 or higher, but Vulkan 1.0 loader is detected");
 
-    create_instance(enable_validation_layers);
+    create_instance(init_params.instance_extensions, init_params.enable_validation_layer);
     volkLoadInstance(vk.instance);
 
     // Create debug messenger as early as possible (even before VkDevice is created).
@@ -242,7 +211,7 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
         VK_CHECK(vkCreateDebugUtilsMessengerEXT(vk.instance, &desc, nullptr, &vk.debug_utils_messenger));
     }
 
-    create_device(window);
+    create_device(init_params, window);
     volkLoadDevice(vk.device);
 
     vkGetDeviceQueue(vk.device, vk.queue_family_index, 0, &vk.queue);
@@ -346,18 +315,12 @@ void vk_initialize(GLFWwindow* window, bool enable_validation_layers) {
         // don't support special case described in the spec
         assert(!(candidates.size() == 1 && candidates[0].format == VK_FORMAT_UNDEFINED));
 
-		VkFormat supported_srgb_formats[] = {
-			VK_FORMAT_B8G8R8A8_SRGB,
-			VK_FORMAT_R8G8B8A8_SRGB,
-			VK_FORMAT_A8B8G8R8_SRGB_PACK32
-		};
-
-		[&candidates, &supported_srgb_formats]() {
-			for (VkFormat srgb_format : supported_srgb_formats) {
+		[&candidates, &init_params]() {
+			for (VkFormat format : init_params.supported_surface_formats) {
 				for (VkSurfaceFormatKHR surface_format : candidates) {
 					if (surface_format.colorSpace != VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 						continue;
-					if (surface_format.format == srgb_format) {
+					if (surface_format.format == format) {
 						vk.surface_format = surface_format;
 						return;
 					}
@@ -457,7 +420,7 @@ void vk_create_swapchain(bool vsync) {
     desc.imageColorSpace    = vk.surface_format.colorSpace;
     desc.imageExtent        = vk.surface_size;
     desc.imageArrayLayers   = 1;
-    desc.imageUsage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    desc.imageUsage         = vk.surface_usage_flags;
     desc.imageSharingMode   = VK_SHARING_MODE_EXCLUSIVE;
     desc.preTransform       = surface_caps.currentTransform;
     desc.compositeAlpha     = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -512,6 +475,7 @@ void vk_ensure_staging_buffer_allocation(VkDeviceSize size) {
     VmaAllocationCreateInfo alloc_create_info{};
     alloc_create_info.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    alloc_create_info.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT; // to avoid manual flush/invalidation
 
     VmaAllocationInfo alloc_info;
     VK_CHECK(vmaCreateBuffer(vk.allocator, &buffer_create_info, &alloc_create_info, &vk.staging_buffer, &vk.staging_buffer_allocation, &alloc_info));
@@ -520,8 +484,15 @@ void vk_ensure_staging_buffer_allocation(VkDeviceSize size) {
     vk.staging_buffer_size = size;
 }
 
-Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const void* data, const char* name) {
-    VkBufferCreateInfo buffer_create_info { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const void* data, const char* name)
+{
+    return vk_create_buffer_with_alignment(size, usage, 1, data, name);
+}
+
+Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage, uint32_t min_alignment,
+    const void* data, const char* name)
+{
+    VkBufferCreateInfo buffer_create_info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     buffer_create_info.size = size;
     buffer_create_info.usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
@@ -529,36 +500,36 @@ Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const vo
     alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
 
     Vk_Buffer buffer;
-    VK_CHECK(vmaCreateBuffer(vk.allocator, &buffer_create_info, &alloc_create_info, &buffer.handle, &buffer.allocation, nullptr));
+    VK_CHECK(vmaCreateBufferWithAlignment(vk.allocator, &buffer_create_info, &alloc_create_info, min_alignment,
+        &buffer.handle, &buffer.allocation, nullptr));
     vk_set_debug_name(buffer.handle, name);
 
-    VkBufferDeviceAddressInfo buffer_address_info { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+    VkBufferDeviceAddressInfo buffer_address_info{ VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
     buffer_address_info.buffer = buffer.handle;
     buffer.device_address = vkGetBufferDeviceAddress(vk.device, &buffer_address_info);
 
     if (data != nullptr) {
         vk_ensure_staging_buffer_allocation(size);
         memcpy(vk.staging_buffer_ptr, data, size);
-
         vk_execute(vk.command_pools[0], vk.queue, [size, &buffer](VkCommandBuffer command_buffer) {
-            VkBufferCopy region;
-            region.srcOffset = 0;
-            region.dstOffset = 0;
+            VkBufferCopy region{};
             region.size = size;
             vkCmdCopyBuffer(command_buffer, vk.staging_buffer, buffer.handle, 1, &region);
-        });
+            });
     }
     return buffer;
 }
 
-Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name) {
+Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name)
+{
     VkBufferCreateInfo buffer_create_info { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     buffer_create_info.size = size;
     buffer_create_info.usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
     VmaAllocationCreateInfo alloc_create_info{};
-    alloc_create_info.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    alloc_create_info.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
     alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    alloc_create_info.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT; // to avoid manual flush/invalidation
 
     VmaAllocationInfo alloc_info;
     Vk_Buffer buffer;
@@ -574,9 +545,56 @@ Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, v
     return buffer;
 }
 
-Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate_mipmaps, const uint8_t* pixels, int bytes_per_pixel, const char* name) {
+Vk_Image vk_create_image(int width, int height, VkFormat format, VkImageUsageFlags usage_flags, const char* name)
+{
     Vk_Image image;
+    // create image
+    {
+        VkImageCreateInfo create_info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        create_info.imageType = VK_IMAGE_TYPE_2D;
+        create_info.format = format;
+        create_info.extent.width = width;
+        create_info.extent.height = height;
+        create_info.extent.depth = 1;
+        create_info.mipLevels = 1;
+        create_info.arrayLayers = 1;
+        create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+        create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        create_info.usage = usage_flags;
+        create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
+        VmaAllocationCreateInfo alloc_create_info{};
+        alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+
+        VK_CHECK(vmaCreateImage(vk.allocator, &create_info, &alloc_create_info, &image.handle, &image.allocation, nullptr));
+        vk_set_debug_name(image.handle, name);
+    }
+    // create image view
+    {
+        VkImageAspectFlagBits aspect_flags = (usage_flags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+            ? VK_IMAGE_ASPECT_DEPTH_BIT
+            : VK_IMAGE_ASPECT_COLOR_BIT;
+
+        VkImageViewCreateInfo create_info{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+        create_info.image = image.handle;
+        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.format = format;
+        create_info.subresourceRange.aspectMask = aspect_flags;
+        create_info.subresourceRange.baseMipLevel = 0;
+        create_info.subresourceRange.levelCount = 1;
+        create_info.subresourceRange.baseArrayLayer = 0;
+        create_info.subresourceRange.layerCount = 1;
+
+        VK_CHECK(vkCreateImageView(vk.device, &create_info, nullptr, &image.view));
+        vk_set_debug_name(image.view, (name + std::string(" (ImageView)")).c_str());
+    }
+    return image;
+}
+
+Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate_mipmaps, const uint8_t* pixels, int bytes_per_pixel, const char* name)
+{
+    Vk_Image image;
     uint32_t mip_levels = 1;
     if (generate_mipmaps) {
         mip_levels = 0;
@@ -719,7 +737,8 @@ Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate
     return image;
 }
 
-Vk_Image vk_load_texture(const std::string& texture_file) {
+Vk_Image vk_load_texture(const std::string& texture_file)
+{
     int w, h;
     int component_count;
 
@@ -732,7 +751,8 @@ Vk_Image vk_load_texture(const std::string& texture_file) {
     return texture;
 }
 
-VkShaderModule vk_load_spirv(const std::string& spirv_file) {
+VkShaderModule vk_load_spirv(const std::string& spirv_file)
+{
     std::vector<uint8_t> bytes = read_binary_file(spirv_file);
 
     if (bytes.size() % 4 != 0) {
@@ -748,54 +768,8 @@ VkShaderModule vk_load_spirv(const std::string& spirv_file) {
     return shader_module;
 }
 
-Vk_Image vk_create_image(int width, int height, VkFormat format, VkImageUsageFlags usage_flags, const char* name) {
-    Vk_Image image;
-
-    // create image
-    {
-        VkImageCreateInfo create_info { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-        create_info.imageType      = VK_IMAGE_TYPE_2D;
-        create_info.format         = format;
-        create_info.extent.width   = width;
-        create_info.extent.height  = height;
-        create_info.extent.depth   = 1;
-        create_info.mipLevels      = 1;
-        create_info.arrayLayers    = 1;
-        create_info.samples        = VK_SAMPLE_COUNT_1_BIT;
-        create_info.tiling         = VK_IMAGE_TILING_OPTIMAL;
-        create_info.usage          = usage_flags;
-        create_info.sharingMode    = VK_SHARING_MODE_EXCLUSIVE;
-        create_info.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-
-        VmaAllocationCreateInfo alloc_create_info{};
-        alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
-
-        VK_CHECK(vmaCreateImage(vk.allocator, &create_info, &alloc_create_info, &image.handle, &image.allocation, nullptr));
-        vk_set_debug_name(image.handle, name);
-    }
-    // create image view
-    {
-        VkImageAspectFlagBits aspect_flags = (usage_flags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-            ? VK_IMAGE_ASPECT_DEPTH_BIT
-            : VK_IMAGE_ASPECT_COLOR_BIT;
-
-        VkImageViewCreateInfo create_info { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        create_info.image                           = image.handle;
-        create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format                          = format;
-        create_info.subresourceRange.aspectMask     = aspect_flags;
-        create_info.subresourceRange.baseMipLevel   = 0;
-        create_info.subresourceRange.levelCount     = 1;
-        create_info.subresourceRange.baseArrayLayer = 0;
-        create_info.subresourceRange.layerCount     = 1;
-
-        VK_CHECK(vkCreateImageView(vk.device, &create_info, nullptr, &image.view));
-        vk_set_debug_name(image.view, (name + std::string(" (ImageView)")).c_str());
-    }
-    return image;
-}
-
-Vk_Graphics_Pipeline_State get_default_graphics_pipeline_state() {
+Vk_Graphics_Pipeline_State get_default_graphics_pipeline_state()
+{
     Vk_Graphics_Pipeline_State state;
 
     // VkVertexInputBindingDescription
@@ -865,8 +839,8 @@ Vk_Graphics_Pipeline_State get_default_graphics_pipeline_state() {
     state.dynamic_state_count                   = 2;
 
     // VkPipelineRenderingCreateInfo
-    state.color_attachment_formats[0]           = vk.surface_format.format;
-    state.color_attachment_count                = 1;
+    state.color_attachment_formats[0]           = VK_FORMAT_UNDEFINED;
+    state.color_attachment_count                = 0;
     state.depth_attachment_format               = VK_FORMAT_UNDEFINED;
 
     return state;
