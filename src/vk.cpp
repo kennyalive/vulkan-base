@@ -288,7 +288,7 @@ void vk_initialize(GLFWwindow* window, const Vk_Init_Params& init_params) {
         VK_CHECK(vkAllocateCommandBuffers(vk.device, &alloc_info, &vk.command_buffers[1]));
     }
 
-    // Descriptor pool.
+    // Imgui descriptor pool.
     {
         const VkDescriptorPoolSize pool_size_info = {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1072,12 +1072,51 @@ Shader_Module::~Shader_Module()
     vkDestroyShaderModule(vk.device, handle, nullptr);
 }
 
-static VkDescriptorSetLayoutBinding get_set_layout_binding(uint32_t binding, VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags)
+VkPipelineLayout create_pipeline_layout(std::initializer_list<VkDescriptorSetLayout> set_layouts,
+    std::initializer_list<VkPushConstantRange> push_constant_ranges, const char* name)
+{
+    VkPipelineLayoutCreateInfo create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+    create_info.setLayoutCount = (uint32_t)set_layouts.size();
+    create_info.pSetLayouts = set_layouts.begin();
+    create_info.pushConstantRangeCount = (uint32_t)push_constant_ranges.size();
+    create_info.pPushConstantRanges = push_constant_ranges.begin();
+
+    VkPipelineLayout pipeline_layout;
+    VK_CHECK(vkCreatePipelineLayout(vk.device, &create_info, nullptr, &pipeline_layout));
+    vk_set_debug_name(pipeline_layout, name);
+    return pipeline_layout;
+}
+
+VkPipeline create_compute_pipeline(const std::string& spirv_file, VkPipelineLayout pipeline_layout, const char* name)
+{
+    Shader_Module shader(spirv_file);
+
+    VkPipelineShaderStageCreateInfo compute_stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+    compute_stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    compute_stage.module = shader.handle;
+    compute_stage.pName = "main";
+
+    VkComputePipelineCreateInfo create_info{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+    create_info.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+    create_info.stage = compute_stage;
+    create_info.layout = pipeline_layout;
+
+    VkPipeline pipeline;
+    VK_CHECK(vkCreateComputePipelines(vk.device, VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline));
+    vk_set_debug_name(pipeline, name);
+    return pipeline;
+}
+
+//
+// Descriptor_Set_Layout
+//
+static VkDescriptorSetLayoutBinding get_set_layout_binding(uint32_t binding, uint32_t count,
+    VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags)
 {
     VkDescriptorSetLayoutBinding entry{};
     entry.binding = binding;
     entry.descriptorType = descriptor_type;
-    entry.descriptorCount = 1;
+    entry.descriptorCount = count;
     entry.stageFlags = stage_flags;
     return entry;
 }
@@ -1085,42 +1124,56 @@ static VkDescriptorSetLayoutBinding get_set_layout_binding(uint32_t binding, VkD
 Descriptor_Set_Layout& Descriptor_Set_Layout::sampled_image(uint32_t binding, VkShaderStageFlags stage_flags)
 {
     assert(binding_count < max_bindings);
-    bindings[binding_count++] = get_set_layout_binding(binding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage_flags);
+    bindings[binding_count++] = get_set_layout_binding(binding, 1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage_flags);
+    return *this;
+}
+
+Descriptor_Set_Layout& Descriptor_Set_Layout::sampled_image_array(uint32_t binding, uint32_t array_size, VkShaderStageFlags stage_flags)
+{
+    assert(binding_count < max_bindings);
+    bindings[binding_count++] = get_set_layout_binding(binding, array_size, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage_flags);
     return *this;
 }
 
 Descriptor_Set_Layout& Descriptor_Set_Layout::storage_image(uint32_t binding, VkShaderStageFlags stage_flags)
 {
     assert(binding_count < max_bindings);
-    bindings[binding_count++] = get_set_layout_binding(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage_flags);
+    bindings[binding_count++] = get_set_layout_binding(binding, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage_flags);
     return *this;
 }
 
 Descriptor_Set_Layout& Descriptor_Set_Layout::sampler(uint32_t binding, VkShaderStageFlags stage_flags)
 {
     assert(binding_count < max_bindings);
-    bindings[binding_count++] = get_set_layout_binding(binding, VK_DESCRIPTOR_TYPE_SAMPLER, stage_flags);
+    bindings[binding_count++] = get_set_layout_binding(binding, 1, VK_DESCRIPTOR_TYPE_SAMPLER, stage_flags);
     return *this;
 }
 
 Descriptor_Set_Layout& Descriptor_Set_Layout::uniform_buffer(uint32_t binding, VkShaderStageFlags stage_flags)
 {
     assert(binding_count < max_bindings);
-    bindings[binding_count++] = get_set_layout_binding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage_flags);
+    bindings[binding_count++] = get_set_layout_binding(binding, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage_flags);
     return *this;
 }
 
 Descriptor_Set_Layout& Descriptor_Set_Layout::storage_buffer(uint32_t binding, VkShaderStageFlags stage_flags)
 {
     assert(binding_count < max_bindings);
-    bindings[binding_count++] = get_set_layout_binding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage_flags);
+    bindings[binding_count++] = get_set_layout_binding(binding, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage_flags);
+    return *this;
+}
+
+Descriptor_Set_Layout& Descriptor_Set_Layout::storage_buffer_array(uint32_t binding, uint32_t array_size, VkShaderStageFlags stage_flags)
+{
+    assert(binding_count < max_bindings);
+    bindings[binding_count++] = get_set_layout_binding(binding, array_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage_flags);
     return *this;
 }
 
 Descriptor_Set_Layout& Descriptor_Set_Layout::accelerator(uint32_t binding, VkShaderStageFlags stage_flags)
 {
     assert(binding_count < max_bindings);
-    bindings[binding_count++] = get_set_layout_binding(binding, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, stage_flags);
+    bindings[binding_count++] = get_set_layout_binding(binding, 1, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, stage_flags);
     return *this;
 }
 

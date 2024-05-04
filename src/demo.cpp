@@ -135,14 +135,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         .sampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
         .create("set_layout");
 
-    // Pipeline layout.
-    {
-        VkPipelineLayoutCreateInfo create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-        create_info.setLayoutCount = 1;
-        create_info.pSetLayouts = &descriptor_set_layout;
-		VK_CHECK(vkCreatePipelineLayout(vk.device, &create_info, nullptr, &pipeline_layout));
-        vk_set_debug_name(pipeline_layout, "pipeline_layout");
-    }
+    pipeline_layout = create_pipeline_layout({ descriptor_set_layout }, {}, "pipeline_layout");
 
     // Pipeline.
     Vk_Graphics_Pipeline_State state = get_default_graphics_pipeline_state();
@@ -205,7 +198,8 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
             VkDeviceSize offset;
             vkGetDescriptorSetLayoutBindingOffsetEXT(vk.device, descriptor_set_layout, 0, &offset);
-            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.uniformBufferDescriptorSize, (uint8_t*)mapped_descriptor_buffer_ptr + offset);
+            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.uniformBufferDescriptorSize,
+                (uint8_t*)mapped_descriptor_buffer_ptr + offset);
         }
 
         // Write descriptor 1 (sampled image)
@@ -220,7 +214,8 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
             VkDeviceSize offset;
             vkGetDescriptorSetLayoutBindingOffsetEXT(vk.device, descriptor_set_layout, 1, &offset);
-            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.sampledImageDescriptorSize, (uint8_t*)mapped_descriptor_buffer_ptr + offset);
+            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.sampledImageDescriptorSize,
+                (uint8_t*)mapped_descriptor_buffer_ptr + offset);
         }
 
         // Write descriptor 2 (sampler)
@@ -231,7 +226,8 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
             VkDeviceSize offset;
             vkGetDescriptorSetLayoutBindingOffsetEXT(vk.device, descriptor_set_layout, 2, &offset);
-            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.samplerDescriptorSize, (uint8_t*)mapped_descriptor_buffer_ptr + offset);
+            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.samplerDescriptorSize,
+                (uint8_t*)mapped_descriptor_buffer_ptr + offset);
         }
     }
 

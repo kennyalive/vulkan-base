@@ -233,16 +233,25 @@ struct Shader_Module {
     VkShaderModule handle;
 };
 
+VkPipelineLayout create_pipeline_layout(
+    std::initializer_list<VkDescriptorSetLayout> set_layouts,
+    std::initializer_list<VkPushConstantRange> push_constant_ranges,
+    const char* name);
+
+VkPipeline create_compute_pipeline(const std::string& spirv_file, VkPipelineLayout pipeline_layout, const char* name);
+
 struct Descriptor_Set_Layout {
     static constexpr uint32_t max_bindings = 32;
     VkDescriptorSetLayoutBinding bindings[max_bindings];
     uint32_t binding_count = 0;
 
     Descriptor_Set_Layout& sampled_image(uint32_t binding, VkShaderStageFlags stage_flags);
+    Descriptor_Set_Layout& sampled_image_array(uint32_t binding, uint32_t array_size, VkShaderStageFlags stage_flags);
     Descriptor_Set_Layout& storage_image(uint32_t binding, VkShaderStageFlags stage_flags);
     Descriptor_Set_Layout& sampler(uint32_t binding, VkShaderStageFlags stage_flags);
     Descriptor_Set_Layout& uniform_buffer(uint32_t binding, VkShaderStageFlags stage_flags);
     Descriptor_Set_Layout& storage_buffer(uint32_t binding, VkShaderStageFlags stage_flags);
+    Descriptor_Set_Layout& storage_buffer_array(uint32_t binding, uint32_t array_size, VkShaderStageFlags stage_flags);
     Descriptor_Set_Layout& accelerator(uint32_t binding, VkShaderStageFlags stage_flags);
     VkDescriptorSetLayout create(const char* name);
 };
