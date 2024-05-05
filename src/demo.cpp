@@ -22,6 +22,7 @@ static VkFormat get_depth_image_format() {
 
 void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     Vk_Init_Params vk_init_params;
+    vk_init_params.error_reporter = &error;
     vk_init_params.enable_validation_layer = enable_validation_layers;
 
     std::array instance_extensions = {
@@ -90,7 +91,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
     // Geometry buffers.
     {
-        Triangle_Mesh mesh = load_obj_model((get_data_directory() / "model/mesh.obj").string(), 1.25f);
+        Triangle_Mesh mesh = load_obj_model(get_resource_path("model/mesh.obj"), 1.25f);
         {
             const VkDeviceSize size = mesh.vertices.size() * sizeof(mesh.vertices[0]);
             VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -107,7 +108,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
 
     // Texture.
     {
-        texture = vk_load_texture((get_data_directory() / "model/diffuse.jpg").string());
+        texture = vk_load_texture(get_resource_path("model/diffuse.jpg"));
 
         VkSamplerCreateInfo create_info { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
         create_info.magFilter = VK_FILTER_LINEAR;
@@ -129,19 +130,19 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     uniform_buffer = vk_create_mapped_buffer(static_cast<VkDeviceSize>(sizeof(Matrix4x4)),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &mapped_uniform_buffer, "uniform_buffer");
 
-    descriptor_set_layout = Descriptor_Set_Layout()
+    descriptor_set_layout = Vk_Descriptor_Set_Layout()
         .uniform_buffer(0, VK_SHADER_STAGE_VERTEX_BIT)
         .sampled_image(1, VK_SHADER_STAGE_FRAGMENT_BIT)
         .sampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
         .create("set_layout");
 
-    pipeline_layout = create_pipeline_layout({ descriptor_set_layout }, {}, "pipeline_layout");
+    pipeline_layout = vk_create_pipeline_layout({ descriptor_set_layout }, {}, "pipeline_layout");
 
     // Pipeline.
     Vk_Graphics_Pipeline_State state = get_default_graphics_pipeline_state();
     {
-		Shader_Module vertex_shader("spirv/mesh.vert.spv");
-		Shader_Module fragment_shader("spirv/mesh.frag.spv");
+		Vk_Shader_Module vertex_shader(get_resource_path("spirv/mesh.vert.spv"));
+		Vk_Shader_Module fragment_shader(get_resource_path("spirv/mesh.frag.spv"));
 
         // VkVertexInputBindingDescription
         state.vertex_bindings[0].binding = 0;
@@ -166,7 +167,7 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
         state.color_attachment_count = 1;
         state.depth_attachment_format = get_depth_image_format();
 
-        pipeline = vk_create_graphics_pipeline(state, pipeline_layout, vertex_shader.handle, fragment_shader.handle);
+        pipeline = vk_create_graphics_pipeline(state, vertex_shader.handle, fragment_shader.handle, pipeline_layout, "draw_mesh_pipeline");
     }
 
     // Descriptor buffer.
@@ -322,7 +323,7 @@ void Vk_Demo::run_frame() {
 
 void Vk_Demo::draw_frame() {
     vk_begin_frame();
-    begin_gpu_marker_scope(vk.command_buffer, "draw_frame");
+    vk_begin_gpu_marker_scope(vk.command_buffer, "draw_frame");
     time_keeper.next_frame();
     gpu_times.frame->begin();
 
@@ -391,7 +392,7 @@ void Vk_Demo::draw_frame() {
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     gpu_times.frame->end();
-    end_gpu_marker_scope(vk.command_buffer);
+    vk_end_gpu_marker_scope(vk.command_buffer);
     vk_end_frame();
 }
 

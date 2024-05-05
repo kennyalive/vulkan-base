@@ -24,11 +24,7 @@ inline float degrees(float radians) {
 }
 
 void error(const std::string& message);
-
-// The place where program's resources are located (models, textures, spirv binaries).
-// This location can be configured with --data-dir command line option.
-fs::path get_data_directory();
-
+std::string get_resource_path(const std::string& path_relative_data_directory);
 std::vector<uint8_t> read_binary_file(const std::string& file_name);
 
 struct Timestamp {

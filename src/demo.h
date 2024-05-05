@@ -31,9 +31,9 @@ private:
     double sim_time = 0;
     Vector3 camera_pos = Vector3(0, 0.5, 3.0);
 
-    GPU_Time_Keeper time_keeper;
+    Vk_GPU_Time_Keeper time_keeper;
     struct {
-        GPU_Time_Interval* frame;
+        Vk_GPU_Time_Interval* frame;
     } gpu_times{};
 
     Vk_Image depth_buffer_image;
