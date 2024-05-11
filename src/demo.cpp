@@ -43,31 +43,31 @@ void Vk_Demo::initialize(GLFWwindow* window, bool enable_validation_layers) {
     vk_init_params.device_extensions = std::span{ device_extensions };
 
     // Specify required features.
+    VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+    Vk_PNexer pnexer(features2);
+    vk_init_params.device_create_info_pnext = (const VkBaseInStructure*)&features2;
+
     VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
     buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
+    pnexer.next(buffer_device_address_features);
 
     VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
     dynamic_rendering_features.dynamicRendering = VK_TRUE;
+    pnexer.next(dynamic_rendering_features);
 
     VkPhysicalDeviceSynchronization2Features synchronization2_features{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES };
     synchronization2_features.synchronization2 = VK_TRUE;
+    pnexer.next(synchronization2_features);
 
     VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_features{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT };
     descriptor_buffer_features.descriptorBuffer = VK_TRUE;
+    pnexer.next(descriptor_buffer_features);
 
-    VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-
-    // Chain feature structures.
-    buffer_device_address_features.pNext = &dynamic_rendering_features;
-    dynamic_rendering_features.pNext = &synchronization2_features;
-    synchronization2_features.pNext = &descriptor_buffer_features;
-    features2.pNext = &buffer_device_address_features;
-    vk_init_params.device_create_info_pnext = (const VkBaseInStructure*)&features2;
-
+    // Surface formats
     std::array surface_formats = {
         VK_FORMAT_B8G8R8A8_SRGB,
         VK_FORMAT_R8G8B8A8_SRGB,
