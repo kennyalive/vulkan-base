@@ -3,29 +3,21 @@
 #include <cassert>
 #include <cstring>
 
-struct Command_Line_Options {
-    bool enable_validation_layers;
-};
-
-static bool parse_command_line(int argc, char** argv, Command_Line_Options& options) {
+static bool parse_command_line(int argc, char** argv) {
     bool found_unknown_option = false;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--validation-layers") == 0) {
-            options.enable_validation_layers = true;
-        }
-        else if (strcmp(argv[i], "--data-dir") == 0) {
-            if (i == argc-1) {
+        if (strcmp(argv[i], "--data-dir") == 0) {
+            if (i == argc - 1) {
                 printf("--data-dir value is missing\n");
-            } else {
+            }
+            else {
                 extern std::string g_data_dir;
-                g_data_dir = argv[i+1];
+                g_data_dir = argv[i + 1];
                 i++;
             }
         }
         else if (strcmp(argv[i], "--help") == 0) {
             printf("%-25s Path to the data directory. Default is ./data.\n", "--data-dir");
-            printf("%-25s Enables Vulkan validation layers.\n", "--validation-layers");
-            printf("%-25s Allows to assign debug names to Vulkan objects.\n", "--debug-names");
             printf("%-25s Shows this information.\n", "--help");
             return false;
         }
@@ -70,22 +62,20 @@ static void glfw_error_callback(int error, const char* description) {
 }
 
 int main(int argc, char** argv) {
-    Command_Line_Options options{};
-
-    if (!parse_command_line(argc, argv, options))
+    if (!parse_command_line(argc, argv)) {
         return 0;
-
+    }
     glfwSetErrorCallback(glfw_error_callback);
-    if (!glfwInit())
+    if (!glfwInit()) {
         error("glfwInit failed");
-
+    }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     GLFWwindow* glfw_window = glfwCreateWindow(window_width, window_height, "Vulkan demo", nullptr, nullptr);
     assert(glfw_window != nullptr);
     glfwSetKeyCallback(glfw_window, glfw_key_callback);
 
     Vk_Demo demo{};
-    demo.initialize(glfw_window, options.enable_validation_layers);
+    demo.initialize(glfw_window);
 
     bool prev_vsync = demo.vsync_enabled();
 
