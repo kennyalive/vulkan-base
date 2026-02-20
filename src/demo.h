@@ -37,11 +37,23 @@ private:
     } gpu_times{};
 
     Vk_Image depth_buffer_image;
-    VkDescriptorSetLayout descriptor_set_layout;
-    VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
-    Vk_Buffer descriptor_buffer;
-    void* mapped_descriptor_buffer_ptr = nullptr;
+
+    Vk_Buffer resource_descriptor_heap;
+    VkDeviceSize resource_descriptor_heap_size = 0;
+    VkDeviceSize resource_reserved_offset = 0;
+    VkDeviceSize resource_reserved_size = 0;
+
+    // TODO: Specify index offset until GLSL_EXT_structured_descriptor_heap is ready.
+    // When it's ready this should be replaced with byte offsets.
+    uint32_t buffer_descriptor_index_offset = 0;
+    uint32_t image_descriptor_index_offset = 0;
+
+    Vk_Buffer sampler_descriptor_heap;
+    VkDeviceSize sampler_descriptor_heap_size = 0;
+    VkDeviceSize sampler_reserved_offset = 0;
+    VkDeviceSize sampler_reserved_size = 0;
+
     Vk_Buffer uniform_buffer;
     void* mapped_uniform_buffer = nullptr;
     Vk_Image texture;

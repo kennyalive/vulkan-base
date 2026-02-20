@@ -36,7 +36,8 @@ void Vk_Demo::initialize(GLFWwindow* window) {
     };
     std::array device_extensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME,
+        VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME,
     };
     vk_init_params.instance_extensions = std::span{ instance_extensions };
     vk_init_params.device_extensions = std::span{ device_extensions };
@@ -61,10 +62,20 @@ void Vk_Demo::initialize(GLFWwindow* window) {
     synchronization2_features.synchronization2 = VK_TRUE;
     pnexer.next(synchronization2_features);
 
-    VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_features{
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT };
-    descriptor_buffer_features.descriptorBuffer = VK_TRUE;
-    pnexer.next(descriptor_buffer_features);
+    VkPhysicalDeviceDescriptorHeapFeaturesEXT descriptor_heap_features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT };
+    descriptor_heap_features.descriptorHeap = VK_TRUE;
+    pnexer.next(descriptor_heap_features);
+
+    VkPhysicalDeviceShaderUntypedPointersFeaturesKHR shader_untyped_pointers_features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR };
+    shader_untyped_pointers_features.shaderUntypedPointers = VK_TRUE;
+    pnexer.next(shader_untyped_pointers_features);
+
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES };
+    descriptor_indexing_features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
+    pnexer.next(descriptor_indexing_features);
 
     // Surface formats
     std::array surface_formats = {
@@ -105,37 +116,30 @@ void Vk_Demo::initialize(GLFWwindow* window) {
         }
     }
 
+    // Sampler information
+    VkSamplerCreateInfo sampler_ci{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    sampler_ci.magFilter = VK_FILTER_LINEAR;
+    sampler_ci.minFilter = VK_FILTER_LINEAR;
+    sampler_ci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler_ci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_ci.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_ci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_ci.mipLodBias = 0.0f;
+    sampler_ci.anisotropyEnable = VK_FALSE;
+    sampler_ci.maxAnisotropy = 1;
+    sampler_ci.minLod = 0.0f;
+    sampler_ci.maxLod = 12.0f;
+
     // Texture.
     {
         texture = vk_load_texture(get_resource_path("model/diffuse.jpg"));
-
-        VkSamplerCreateInfo create_info { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-        create_info.magFilter = VK_FILTER_LINEAR;
-        create_info.minFilter = VK_FILTER_LINEAR;
-        create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        create_info.mipLodBias = 0.0f;
-        create_info.anisotropyEnable = VK_FALSE;
-        create_info.maxAnisotropy = 1;
-        create_info.minLod = 0.0f;
-        create_info.maxLod = 12.0f;
-
-        VK_CHECK(vkCreateSampler(vk.device, &create_info, nullptr, &sampler));
+        VK_CHECK(vkCreateSampler(vk.device, &sampler_ci, nullptr, &sampler));
         vk_set_debug_name(sampler, "diffuse_texture_sampler");
     }
 
-    uniform_buffer = vk_create_mapped_buffer(static_cast<VkDeviceSize>(sizeof(Matrix4x4)),
+    const VkDeviceSize uniform_buffer_size = static_cast<VkDeviceSize>(sizeof(Matrix4x4));
+    uniform_buffer = vk_create_mapped_buffer(uniform_buffer_size,
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &mapped_uniform_buffer, "uniform_buffer");
-
-    descriptor_set_layout = Vk_Descriptor_Set_Layout()
-        .uniform_buffer(0, VK_SHADER_STAGE_VERTEX_BIT)
-        .sampled_image(1, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .sampler(2, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .create("set_layout");
-
-    pipeline_layout = vk_create_pipeline_layout({ descriptor_set_layout }, {}, "pipeline_layout");
 
     // Pipeline.
     Vk_Graphics_Pipeline_State state = get_default_graphics_pipeline_state();
@@ -166,68 +170,106 @@ void Vk_Demo::initialize(GLFWwindow* window) {
         state.color_attachment_count = 1;
         state.depth_attachment_format = get_depth_image_format();
 
-        pipeline = vk_create_graphics_pipeline(state, vertex_shader.handle, fragment_shader.handle, pipeline_layout, "draw_mesh_pipeline");
+        pipeline = vk_create_graphics_pipeline(state, vertex_shader.handle, fragment_shader.handle, "draw_mesh_pipeline");
     }
 
-    // Descriptor buffer.
+    // Descriptor heaps.
     {
-        VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_buffer_properties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT };
-        VkPhysicalDeviceProperties2 physical_device_properties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-        physical_device_properties.pNext = &descriptor_buffer_properties;
+        VkPhysicalDeviceDescriptorHeapPropertiesEXT descriptor_heap_properties{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT };
+        VkPhysicalDeviceProperties2 physical_device_properties{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+        physical_device_properties.pNext = &descriptor_heap_properties;
+
         vkGetPhysicalDeviceProperties2(vk.physical_device, &physical_device_properties);
+        resource_reserved_size = descriptor_heap_properties.minResourceHeapReservedRange;
+        sampler_reserved_size = descriptor_heap_properties.minSamplerHeapReservedRange;
 
-        VkDeviceSize layout_size_in_bytes = 0;
-        vkGetDescriptorSetLayoutSizeEXT(vk.device, descriptor_set_layout, &layout_size_in_bytes);
-
-        descriptor_buffer = vk_create_mapped_buffer(
-            layout_size_in_bytes,
-            VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
-            &mapped_descriptor_buffer_ptr, "descriptor_buffer"
-        );
-        assert(descriptor_buffer.device_address % descriptor_buffer_properties.descriptorBufferOffsetAlignment == 0);
-
-        // Write descriptor 0 (uniform buffer)
+        // Resource descriptor heap with two descriptors
         {
-            VkDescriptorAddressInfoEXT address_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT };
-            address_info.address = uniform_buffer.device_address;
-            address_info.range = sizeof(Matrix4x4);
+            const VkDeviceSize uniform_buffer_descriptor_offset = 0;
+            
+            VkDeviceSize image_descriptor_offset = round_up(
+                uniform_buffer_descriptor_offset + descriptor_heap_properties.bufferDescriptorSize,
+                descriptor_heap_properties.imageDescriptorAlignment
+            );
+            // TODO: until heap_offset is ready (allows to specify offset in bytes) we are going to
+            // use "index offset". For that we need to ensure that image descriptor offset is not
+            // only aligned to imageDescriptorAlignment but also aligned to image descriptor size
+            // (so the offset of image descriptor array in bytes can be represented as multiple
+            // of image descriptor size)
+            image_descriptor_offset = round_up(image_descriptor_offset, descriptor_heap_properties.imageDescriptorSize);
 
-            VkDescriptorGetInfoEXT descriptor_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT };
-            descriptor_info.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptor_info.data.pUniformBuffer = &address_info;
+            resource_reserved_offset = round_up(
+                image_descriptor_offset + descriptor_heap_properties.imageDescriptorSize,
+                std::max(descriptor_heap_properties.bufferDescriptorAlignment, descriptor_heap_properties.imageDescriptorAlignment)
+            );
+            resource_descriptor_heap_size = resource_reserved_offset + resource_reserved_size;
+            std::vector<uint8_t> descriptor_data(resource_descriptor_heap_size);
 
-            VkDeviceSize offset;
-            vkGetDescriptorSetLayoutBindingOffsetEXT(vk.device, descriptor_set_layout, 0, &offset);
-            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.uniformBufferDescriptorSize,
-                (uint8_t*)mapped_descriptor_buffer_ptr + offset);
+            VkHostAddressRangeEXT descriptor_host_ranges[2] = {};
+            descriptor_host_ranges[0].address = descriptor_data.data() + uniform_buffer_descriptor_offset;
+            descriptor_host_ranges[0].size = descriptor_heap_properties.bufferDescriptorSize;
+            descriptor_host_ranges[1].address = descriptor_data.data() + image_descriptor_offset;
+            descriptor_host_ranges[1].size = descriptor_heap_properties.imageDescriptorSize;
+
+            VkResourceDescriptorInfoEXT descriptor_infos[2] = {};
+
+            // uniform buffer
+            VkDeviceAddressRangeEXT uniform_buffer_range = { uniform_buffer.device_address, uniform_buffer_size };
+            descriptor_infos[0].sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT;
+            descriptor_infos[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptor_infos[0].data.pAddressRange = &uniform_buffer_range;
+
+            // sampled image
+            VkImageViewCreateInfo image_view_ci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+            image_view_ci.image = texture.handle;
+            image_view_ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            image_view_ci.format = VK_FORMAT_R8G8B8A8_SRGB;
+            image_view_ci.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, 1 };
+
+            VkImageDescriptorInfoEXT image_descriptor_info{ VK_STRUCTURE_TYPE_IMAGE_DESCRIPTOR_INFO_EXT };
+            image_descriptor_info.pView = &image_view_ci;
+            image_descriptor_info.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+            descriptor_infos[1].sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT;
+            descriptor_infos[1].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+            descriptor_infos[1].data.pImage = &image_descriptor_info;
+
+            vkWriteResourceDescriptorsEXT(vk.device, 2, descriptor_infos, descriptor_host_ranges);
+
+            resource_descriptor_heap = vk_create_buffer_with_alignment(
+                resource_descriptor_heap_size,
+                VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+                (uint32_t)descriptor_heap_properties.resourceHeapAlignment,
+                descriptor_data.data()
+            );
+
+            buffer_descriptor_index_offset = 0;
+            image_descriptor_index_offset = uint32_t(image_descriptor_offset / descriptor_heap_properties.imageDescriptorSize);
         }
 
-        // Write descriptor 1 (sampled image)
+        // Sampler descriptor heap with a single sampler
         {
-            VkDescriptorImageInfo image_info;
-            image_info.imageView = texture.view;
-            image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            const VkDeviceSize sampler_descriptor_offset = 0;
+            sampler_reserved_offset = round_up(
+                sampler_descriptor_offset + descriptor_heap_properties.samplerDescriptorSize,
+                descriptor_heap_properties.samplerDescriptorAlignment
+            );
+            sampler_descriptor_heap_size = sampler_reserved_offset + sampler_reserved_size;
+            std::vector<uint8_t> descriptor_data(sampler_descriptor_heap_size);
 
-            VkDescriptorGetInfoEXT descriptor_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT };
-            descriptor_info.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            descriptor_info.data.pSampledImage = &image_info;
+            VkHostAddressRangeEXT descriptor_host_range = {};
+            descriptor_host_range.address = descriptor_data.data() + sampler_descriptor_offset;
+            descriptor_host_range.size = descriptor_heap_properties.samplerDescriptorSize;
+            vkWriteSamplerDescriptorsEXT(vk.device, 1, &sampler_ci, &descriptor_host_range);
 
-            VkDeviceSize offset;
-            vkGetDescriptorSetLayoutBindingOffsetEXT(vk.device, descriptor_set_layout, 1, &offset);
-            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.sampledImageDescriptorSize,
-                (uint8_t*)mapped_descriptor_buffer_ptr + offset);
-        }
-
-        // Write descriptor 2 (sampler)
-        {
-            VkDescriptorGetInfoEXT descriptor_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT };
-            descriptor_info.type = VK_DESCRIPTOR_TYPE_SAMPLER;
-            descriptor_info.data.pSampler = &sampler;
-
-            VkDeviceSize offset;
-            vkGetDescriptorSetLayoutBindingOffsetEXT(vk.device, descriptor_set_layout, 2, &offset);
-            vkGetDescriptorEXT(vk.device, &descriptor_info, descriptor_buffer_properties.samplerDescriptorSize,
-                (uint8_t*)mapped_descriptor_buffer_ptr + offset);
+            sampler_descriptor_heap = vk_create_buffer_with_alignment(
+                sampler_descriptor_heap_size,
+                VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+                (uint32_t)descriptor_heap_properties.samplerHeapAlignment,
+                descriptor_data.data()
+            );
         }
     }
 
@@ -270,12 +312,11 @@ void Vk_Demo::shutdown() {
     release_resolution_dependent_resources();
     gpu_mesh.destroy();
     texture.destroy();
-    descriptor_buffer.destroy();
+    resource_descriptor_heap.destroy();
+    sampler_descriptor_heap.destroy();
     uniform_buffer.destroy();
 
     vkDestroySampler(vk.device, sampler, nullptr);
-    vkDestroyDescriptorSetLayout(vk.device, descriptor_set_layout, nullptr);
-    vkDestroyPipelineLayout(vk.device, pipeline_layout, nullptr);
     vkDestroyPipeline(vk.device, pipeline, nullptr);
 
     vk_shutdown();
@@ -326,10 +367,25 @@ void Vk_Demo::draw_frame() {
     time_keeper.next_frame();
     gpu_times.frame->begin();
 
-    VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT };
-    descriptor_buffer_binding_info.address = descriptor_buffer.device_address;
-    descriptor_buffer_binding_info.usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
-    vkCmdBindDescriptorBuffersEXT(vk.command_buffer, 1, &descriptor_buffer_binding_info);
+    VkBindHeapInfoEXT resource_heap_info{ VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT };
+    resource_heap_info.heapRange.address = resource_descriptor_heap.device_address;
+    resource_heap_info.heapRange.size = resource_descriptor_heap_size;
+    resource_heap_info.reservedRangeOffset = resource_reserved_offset;
+    resource_heap_info.reservedRangeSize = resource_reserved_size;
+    vkCmdBindResourceHeapEXT(vk.command_buffer, &resource_heap_info);
+
+    VkBindHeapInfoEXT sampler_heap_info{ VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT };
+    sampler_heap_info.heapRange.address = sampler_descriptor_heap.device_address;
+    sampler_heap_info.heapRange.size = sampler_descriptor_heap_size;
+    sampler_heap_info.reservedRangeOffset = sampler_reserved_offset;
+    sampler_heap_info.reservedRangeSize = sampler_reserved_size;
+    vkCmdBindSamplerHeapEXT(vk.command_buffer, &sampler_heap_info);
+
+    const uint32_t push_data[2] = { buffer_descriptor_index_offset , image_descriptor_index_offset };
+    VkPushDataInfoEXT push_data_info{ VK_STRUCTURE_TYPE_PUSH_DATA_INFO_EXT };
+    push_data_info.data.address = push_data;
+    push_data_info.data.size = 8;
+    vkCmdPushDataEXT(vk.command_buffer, &push_data_info);
 
     vk_cmd_image_barrier(vk.command_buffer, vk.swapchain_info.images[vk.swapchain_image_index],
         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT /* execution dependency with acquire semaphore wait */, VK_ACCESS_2_NONE,
@@ -373,11 +429,6 @@ void Vk_Demo::draw_frame() {
     const VkDeviceSize zero_offset = 0;
     vkCmdBindVertexBuffers(vk.command_buffer, 0, 1, &gpu_mesh.vertex_buffer.handle, &zero_offset);
     vkCmdBindIndexBuffer(vk.command_buffer, gpu_mesh.index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
-
-    const uint32_t buffer_index = 0;
-    const VkDeviceSize set_offset = 0;
-    vkCmdSetDescriptorBufferOffsetsEXT(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &buffer_index, &set_offset);
-
     vkCmdBindPipeline(vk.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     vkCmdDrawIndexed(vk.command_buffer, gpu_mesh.index_count, 1, 0, 0, 0);
 

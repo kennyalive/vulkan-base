@@ -41,7 +41,7 @@ static void create_instance(const std::span<const char*>& instance_extensions)
     }
 
     VkApplicationInfo app_info { VK_STRUCTURE_TYPE_APPLICATION_INFO };
-    app_info.apiVersion = VK_API_VERSION_1_3;
+    app_info.apiVersion = VK_API_VERSION_1_4;
 
     VkInstanceCreateInfo instance_create_info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
     instance_create_info.pApplicationInfo = &app_info;
@@ -227,7 +227,7 @@ void vk_initialize(GLFWwindow* window, const Vk_Init_Params& init_params)
         allocator_info.device = vk.device;
         allocator_info.instance = vk.instance;
         allocator_info.pVulkanFunctions = &alloc_funcs;
-        allocator_info.vulkanApiVersion = VK_API_VERSION_1_3;
+        allocator_info.vulkanApiVersion = VK_API_VERSION_1_4;
         VK_CHECK(vmaCreateAllocator(&allocator_info, &vk.allocator));
     }
 
@@ -869,8 +869,7 @@ Vk_Graphics_Pipeline_State get_default_graphics_pipeline_state()
 }
 
 VkPipeline vk_create_graphics_pipeline(const Vk_Graphics_Pipeline_State& state,
-    VkShaderModule vertex_shader, VkShaderModule fragment_shader,
-    VkPipelineLayout pipeline_layout, const char* name)
+    VkShaderModule vertex_shader, VkShaderModule fragment_shader, const char* name)
 {
     auto get_shader_stage_create_info = [](VkShaderStageFlagBits stage, VkShaderModule shader_module) {
         VkPipelineShaderStageCreateInfo create_info{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
@@ -901,14 +900,17 @@ VkPipeline vk_create_graphics_pipeline(const Vk_Graphics_Pipeline_State& state,
     dynamic_state_create_info.dynamicStateCount         = state.dynamic_state_count;
     dynamic_state_create_info.pDynamicStates            = state.dynamic_state;
 
+    VkPipelineCreateFlags2CreateInfo flags_create_info = { VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO };
+    flags_create_info.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
+
     VkPipelineRenderingCreateInfo rendering_create_info{ VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+    rendering_create_info.pNext = &flags_create_info;
     rendering_create_info.colorAttachmentCount          = state.color_attachment_count;
     rendering_create_info.pColorAttachmentFormats       = state.color_attachment_formats;
     rendering_create_info.depthAttachmentFormat         = state.depth_attachment_format;
 
     VkGraphicsPipelineCreateInfo create_info { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
     create_info.pNext                                   = &rendering_create_info;
-    create_info.flags                                   = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
     create_info.stageCount                              = (uint32_t)std::size(shader_stages_state);
     create_info.pStages                                 = shader_stages_state;
     create_info.pVertexInputState                       = &vertex_input_state;
@@ -919,7 +921,6 @@ VkPipeline vk_create_graphics_pipeline(const Vk_Graphics_Pipeline_State& state,
     create_info.pDepthStencilState                      = &state.depth_stencil_state;
     create_info.pColorBlendState                        = &blend_state;
     create_info.pDynamicState                           = &dynamic_state_create_info;
-    create_info.layout                                  = pipeline_layout;
     create_info.subpass                                 = 0;
 
     VkPipeline pipeline{};
@@ -936,7 +937,6 @@ VkPipeline vk_create_compute_pipeline(VkShaderModule compute_shader, VkPipelineL
     compute_stage.pName = "main";
 
     VkComputePipelineCreateInfo create_info{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
-    create_info.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
     create_info.stage = compute_stage;
     create_info.layout = pipeline_layout;
 
