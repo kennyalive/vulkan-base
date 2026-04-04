@@ -1,9 +1,7 @@
 #define VMA_IMPLEMENTATION
 #include "vk.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
+#include "stb/stb_image.h"
 #include "glfw/glfw3.h"
 
 #include "vulkan/vk_enum_string_helper.h"
@@ -338,7 +336,6 @@ void vk_shutdown()
     vmaDestroyAllocator(vk.allocator);
     vkDestroyDevice(vk.device, nullptr);
     vkDestroySurfaceKHR(vk.instance, vk.surface, nullptr);
-    vkDestroyDebugUtilsMessengerEXT(vk.instance, vk.debug_utils_messenger, nullptr);
     vkDestroyInstance(vk.instance, nullptr);
 }
 
@@ -472,7 +469,7 @@ Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const vo
     return vk_create_buffer_with_alignment(size, usage, 1, data, name);
 }
 
-Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage, uint32_t min_alignment,
+Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage, uint32_t alignment,
     const void* data, const char* name)
 {
     VkBufferCreateInfo buffer_create_info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -483,9 +480,12 @@ Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags 
     alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
 
     Vk_Buffer buffer;
-    VK_CHECK(vmaCreateBufferWithAlignment(vk.allocator, &buffer_create_info, &alloc_create_info, min_alignment,
-        &buffer.handle, &buffer.allocation, nullptr));
+    VK_CHECK(vmaCreateBufferWithAlignment(
+        vk.allocator, &buffer_create_info, &alloc_create_info, alignment,
+        &buffer.handle, &buffer.allocation, nullptr
+    ));
     vk_set_debug_name(buffer.handle, name);
+    buffer.size = size;
 
     VkBufferDeviceAddressInfo buffer_address_info{ VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
     buffer_address_info.buffer = buffer.handle;
@@ -503,9 +503,14 @@ Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags 
     return buffer;
 }
 
-Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, void** buffer_ptr, const char* name)
+Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, const char* name)
 {
-    VkBufferCreateInfo buffer_create_info { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    return vk_create_mapped_buffer_with_alignment(size, usage, 1, name);
+}
+
+Vk_Buffer vk_create_mapped_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage, uint32_t alignment, const char* name)
+{
+    VkBufferCreateInfo buffer_create_info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     buffer_create_info.size = size;
     buffer_create_info.usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
@@ -514,23 +519,26 @@ Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage, v
     alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
     alloc_create_info.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT; // to avoid manual flush/invalidation
 
-    VmaAllocationInfo alloc_info;
     Vk_Buffer buffer;
-    VK_CHECK(vmaCreateBuffer(vk.allocator, &buffer_create_info, &alloc_create_info, &buffer.handle, &buffer.allocation, &alloc_info));
+    VmaAllocationInfo alloc_info;
+    VK_CHECK(vmaCreateBufferWithAlignment(
+        vk.allocator, &buffer_create_info, &alloc_create_info, alignment,
+        &buffer.handle, &buffer.allocation, &alloc_info
+    ));
     vk_set_debug_name(buffer.handle, name);
+    buffer.size = size;
+    buffer.mapped_ptr = alloc_info.pMappedData;
 
-    VkBufferDeviceAddressInfo buffer_address_info { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+    VkBufferDeviceAddressInfo buffer_address_info{ VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
     buffer_address_info.buffer = buffer.handle;
     buffer.device_address = vkGetBufferDeviceAddress(vk.device, &buffer_address_info);
-
-    if (buffer_ptr)
-        *buffer_ptr = alloc_info.pMappedData;
     return buffer;
 }
 
 Vk_Image vk_create_image(int width, int height, VkFormat format, VkImageUsageFlags usage_flags, const char* name)
 {
     Vk_Image image;
+    image.format = format;
     // create image
     {
         VkImageCreateInfo create_info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -578,6 +586,7 @@ Vk_Image vk_create_image(int width, int height, VkFormat format, VkImageUsageFla
 Vk_Image vk_create_texture(int width, int height, VkFormat format, bool generate_mipmaps, const uint8_t* pixels, int bytes_per_pixel, const char* name)
 {
     Vk_Image image;
+    image.format = format;
     uint32_t mip_levels = 1;
     if (generate_mipmaps) {
         mip_levels = 0;
@@ -929,6 +938,32 @@ VkPipeline vk_create_graphics_pipeline(const Vk_Graphics_Pipeline_State& state,
     return pipeline;
 }
 
+VkPipeline vk_create_compute_pipeline(VkShaderModule compute_shader,
+    std::span<const VkDescriptorSetAndBindingMappingEXT> binding_mappings, const char* name)
+{
+    VkShaderDescriptorSetAndBindingMappingInfoEXT mapping_info{ VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT };
+    mapping_info.mappingCount = (uint32_t)binding_mappings.size();
+    mapping_info.pMappings = binding_mappings.data();
+
+    VkPipelineShaderStageCreateInfo compute_stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+    compute_stage.pNext = &mapping_info;
+    compute_stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    compute_stage.module = compute_shader;
+    compute_stage.pName = "main";
+
+    VkPipelineCreateFlags2CreateInfo flags_create_info = { VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO };
+    flags_create_info.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
+
+    VkComputePipelineCreateInfo create_info{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+    create_info.pNext = &flags_create_info;
+    create_info.stage = compute_stage;
+
+    VkPipeline pipeline{};
+    VK_CHECK(vkCreateComputePipelines(vk.device, VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline));
+    vk_set_debug_name(pipeline, name);
+    return pipeline;
+}
+
 VkPipeline vk_create_compute_pipeline(VkShaderModule compute_shader, VkPipelineLayout pipeline_layout, const char* name)
 {
     VkPipelineShaderStageCreateInfo compute_stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
@@ -1109,83 +1144,101 @@ Vk_Shader_Module::~Vk_Shader_Module()
     vkDestroyShaderModule(vk.device, handle, nullptr);
 }
 
-static VkDescriptorSetLayoutBinding get_set_layout_binding(uint32_t binding, uint32_t count,
-    VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags)
+VkDescriptorSetAndBindingMappingEXT map_binding_to_heap_offset(
+    uint32_t set, uint32_t binding, VkSpirvResourceTypeFlagBitsEXT resource_type,
+    uint32_t heap_offset, uint32_t heap_array_stride)
 {
-    VkDescriptorSetLayoutBinding entry{};
-    entry.binding = binding;
-    entry.descriptorType = descriptor_type;
-    entry.descriptorCount = count;
-    entry.stageFlags = stage_flags;
-    return entry;
+    VkDescriptorSetAndBindingMappingEXT mapping{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT };
+    mapping.descriptorSet = set;
+    mapping.firstBinding = binding;
+    mapping.bindingCount = 1;
+    mapping.resourceMask = resource_type;
+    mapping.source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT;
+    mapping.sourceData.constantOffset.heapOffset = heap_offset;
+    mapping.sourceData.constantOffset.heapArrayStride = heap_array_stride;
+    return mapping;
 }
 
-void Vk_GPU_Time_Interval::begin()
+//
+// Time queries
+//
+void Vk_Timer::start()
 {
-    vkCmdWriteTimestamp(vk.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pool, start_query[vk.frame_index]);
+    assert(time_keeper->frame_active_timer_count < Vk_Time_Keeper::max_timers);
+    time_keeper->frame_active_timers[time_keeper->frame_active_timer_count++] = this;
+    vkCmdWriteTimestamp(vk.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pool, start_query);
 }
 
-void Vk_GPU_Time_Interval::end()
+void Vk_Timer::stop()
 {
-    vkCmdWriteTimestamp(vk.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pool, start_query[vk.frame_index] + 1);
+    vkCmdWriteTimestamp(vk.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pool, start_query + 1);
 }
 
-Vk_GPU_Time_Interval* Vk_GPU_Time_Keeper::allocate_time_interval()
+Vk_Timer* Vk_Time_Keeper::allocate_timer(const char* name)
 {
-    assert(time_interval_count < max_time_intervals);
-    Vk_GPU_Time_Interval* time_interval = &time_intervals[time_interval_count++];
-
-    time_interval->start_query[0] = time_interval->start_query[1] = vk_allocate_timestamp_queries(2);
-    time_interval->length_ms = 0.f;
-    return time_interval;
+    assert(timer_count < max_timers);
+    Vk_Timer* timer = &timers[timer_count++];
+    timer->time_keeper = this;
+    timer->name = name;
+    timer->start_query = vk_allocate_timestamp_queries(2);
+    timer->duration_ms = 0.f;
+    return timer;
 }
 
-void Vk_GPU_Time_Keeper::initialize_time_intervals()
+void Vk_Time_Keeper::initialize_timers()
 {
     vk_execute(vk.command_pools[0], vk.queue, [this](VkCommandBuffer command_buffer) {
-        vkCmdResetQueryPool(command_buffer, vk.timestamp_query_pools[0], 0, 2 * time_interval_count);
-        vkCmdResetQueryPool(command_buffer, vk.timestamp_query_pools[1], 0, 2 * time_interval_count);
-        for (uint32_t i = 0; i < time_interval_count; i++) {
-            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[0], time_intervals[i].start_query[0]);
-            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[0], time_intervals[i].start_query[0] + 1);
-            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[1], time_intervals[i].start_query[1]);
-            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[1], time_intervals[i].start_query[1] + 1);
+        vkCmdResetQueryPool(command_buffer, vk.timestamp_query_pools[0], 0, 2 * timer_count);
+        vkCmdResetQueryPool(command_buffer, vk.timestamp_query_pools[1], 0, 2 * timer_count);
+        for (uint32_t i = 0; i < timer_count; i++) {
+            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[0], timers[i].start_query);
+            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[0], timers[i].start_query + 1);
+            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[1], timers[i].start_query);
+            vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, vk.timestamp_query_pools[1], timers[i].start_query + 1);
+            frame_active_timers[frame_active_timer_count++] = &timers[i];
         }
         });
 }
 
-void Vk_GPU_Time_Keeper::next_frame()
+void Vk_Time_Keeper::retrieve_query_results()
 {
-    uint64_t query_results[2/*query_result + availability*/ * 2/*start + end*/ * max_time_intervals];
-    const uint32_t query_count = 2 * time_interval_count;
-    VkResult result = vkGetQueryPoolResults(vk.device, vk.timestamp_query_pool, 0, query_count,
-        query_count * 2 * sizeof(uint64_t), query_results, 2 * sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
-    VK_CHECK_RESULT(result);
-    assert(result != VK_NOT_READY);
+    for (int i = 0; i < frame_active_timer_count; i++) {
+        const uint32_t start_query = frame_active_timers[i]->start_query;
 
-    const float influence = 0.25f;
+        uint64_t query_results[2 /*query result + availability*/ * 2 /*start+end timestamps*/];
+        VkResult result = vkGetQueryPoolResults(vk.device, vk.timestamp_query_pool, start_query, 2,
+            4 * sizeof(uint64_t), query_results, 2 * sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+        VK_CHECK_RESULT(result);
+        assert(result == VK_SUCCESS);
 
-    for (uint32_t i = 0; i < time_interval_count; i++) {
-        assert(query_results[4 * i + 2] >= query_results[4 * i]);
-        time_intervals[i].length_ms = (1.f - influence) * time_intervals[i].length_ms + influence * float(double(query_results[4 * i + 2] - query_results[4 * i]) * vk.timestamp_period_ms);
+        assert(query_results[2] >= query_results[0]); // check that end time >= start time
+        float measured_duration = float(double(query_results[2] - query_results[0]) * vk.timestamp_period_ms);
+
+        const float influence = 0.25f;
+        const int scope_index = start_query / 2;
+        timers[scope_index].duration_ms = (1.f - influence) * timers[scope_index].duration_ms + influence * measured_duration;
+
+        vkCmdResetQueryPool(vk.command_buffer, vk.timestamp_query_pool, start_query, 2);
     }
-
-    vkCmdResetQueryPool(vk.command_buffer, vk.timestamp_query_pool, 0, query_count);
+    frame_active_timer_count = 0;
 }
 
-void vk_begin_gpu_marker_scope(VkCommandBuffer command_buffer, const char* name)
+//
+// Debug markers
+//
+void vk_begin_marker(VkCommandBuffer command_buffer, const char* name)
 {
     VkDebugUtilsLabelEXT label{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
     label.pLabelName = name;
     vkCmdBeginDebugUtilsLabelEXT(command_buffer, &label);
 }
 
-void vk_end_gpu_marker_scope(VkCommandBuffer command_buffer)
+void vk_end_marker(VkCommandBuffer command_buffer)
 {
     vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
-void vk_write_gpu_marker(VkCommandBuffer command_buffer, const char* name)
+void vk_write_marker(VkCommandBuffer command_buffer, const char* name)
 {
     VkDebugUtilsLabelEXT label{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
     label.pLabelName = name;

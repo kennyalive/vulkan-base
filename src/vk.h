@@ -1,6 +1,6 @@
 #pragma once
 
-constexpr unsigned int VK_VERSION = 1;
+constexpr int VK_VERSION = -2;
 
 #ifdef _WIN32
 #define NOMINMAX
@@ -34,17 +34,30 @@ struct Vk_Init_Params {
     VkImageUsageFlags surface_usage_flags = 0;
 };
 
+struct Vk_Buffer {
+    VkBuffer handle = VK_NULL_HANDLE;
+    VmaAllocation allocation = VK_NULL_HANDLE;
+    VkDeviceSize size = 0;
+    VkDeviceAddress device_address = 0;
+    void* mapped_ptr = nullptr;
+
+    void destroy();
+    VkDeviceAddressRangeEXT address_range() const
+    {
+        return VkDeviceAddressRangeEXT{ device_address, size };
+    }
+    template <typename T>
+    T* get_mapped_data()
+    {
+        return static_cast<T*>(mapped_ptr);
+    }
+};
+
 struct Vk_Image {
     VkImage handle = VK_NULL_HANDLE;
     VkImageView view = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
-    void destroy();
-};
-
-struct Vk_Buffer {
-    VkBuffer handle = VK_NULL_HANDLE;
-    VmaAllocation allocation = VK_NULL_HANDLE;
-    VkDeviceAddress device_address = 0;
+    VkFormat format = VK_FORMAT_UNDEFINED;
     void destroy();
 };
 
@@ -85,10 +98,12 @@ void vk_ensure_staging_buffer_allocation(VkDeviceSize size);
 // Buffers
 Vk_Buffer vk_create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
     const void* data = nullptr, const char* name = nullptr);
-Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage, uint32_t min_alignment,
-    const void* data = nullptr, const char* name = nullptr);
+Vk_Buffer vk_create_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage,
+    uint32_t alignment, const void* data = nullptr, const char* name = nullptr);
 Vk_Buffer vk_create_mapped_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
-    void** buffer_ptr, const char* name = nullptr);
+    const char* name = nullptr);
+Vk_Buffer vk_create_mapped_buffer_with_alignment(VkDeviceSize size, VkBufferUsageFlags usage,
+    uint32_t alignment, const char* name = nullptr);
 
 // Images
 Vk_Image vk_create_image(int width, int height, VkFormat format, VkImageUsageFlags usage_flags, const char* name);
@@ -107,8 +122,11 @@ Vk_Graphics_Pipeline_State get_default_graphics_pipeline_state();
 VkPipeline vk_create_graphics_pipeline(const Vk_Graphics_Pipeline_State& state,
     VkShaderModule vertex_shader, VkShaderModule fragment_shader, const char* name);
 
-VkPipeline vk_create_compute_pipeline(VkShaderModule compute_shader,
-    VkPipelineLayout pipeline_layout, const char* name);
+VkPipeline vk_create_compute_pipeline(
+    VkShaderModule compute_shader,
+    std::span<const VkDescriptorSetAndBindingMappingEXT> binding_mappings,
+    const char* name
+);
 
 void vk_begin_frame();
 void vk_end_frame();
@@ -128,9 +146,9 @@ void vk_cmd_image_barrier_for_subresource(VkCommandBuffer command_buffer, VkImag
 
 uint32_t vk_allocate_timestamp_queries(uint32_t count);
 
-// Workaround for static_assert(false). It should be used like this: static_assert(dependent_false_v<T>)
+// Workaround for static_assert(false). It should be used like this: static_assert(vk_dependent_false_v<T>)
 template<typename>
-inline constexpr bool dependent_false_v = false;
+inline constexpr bool vk_dependent_false_v = false;
 
 template <typename Vk_Object_Type>
 void vk_set_debug_name(Vk_Object_Type object, const char* name)
@@ -170,7 +188,7 @@ void vk_set_debug_name(Vk_Object_Type object, const char* name)
     else IF_TYPE_THEN_ENUM(VkSwapchainKHR,              VK_OBJECT_TYPE_SWAPCHAIN_KHR                )
     else IF_TYPE_THEN_ENUM(VkAccelerationStructureKHR,  VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR   )
     else IF_TYPE_THEN_ENUM(VkDebugUtilsMessengerEXT,    VK_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT    )
-    else static_assert(dependent_false_v<Vk_Object_Type>, "Unknown Vulkan object type");
+    else static_assert(vk_dependent_false_v<Vk_Object_Type>, "Unknown Vulkan object type");
 #undef IF_TYPE_THEN_ENUM
 
     void set_debug_name_impl(VkObjectType object_type, uint64_t object_handle, const char* name);
@@ -223,8 +241,6 @@ struct Vk_Instance {
     VkDeviceSize                    staging_buffer_size;
     uint8_t*                        staging_buffer_ptr; // pointer to mapped staging buffer
 
-    VkDebugUtilsMessengerEXT        debug_utils_messenger;
-
     VkDescriptorPool                imgui_descriptor_pool;
 };
 
@@ -256,61 +272,74 @@ struct Vk_Shader_Module {
     VkShaderModule handle;
 };
 
-//
-// GPU time queries.
-//
-struct Vk_GPU_Time_Interval {
-    uint32_t start_query[2]; // end query == (start_query[frame_index] + 1)
-    float length_ms;
+VkDescriptorSetAndBindingMappingEXT map_binding_to_heap_offset(
+    uint32_t set, uint32_t binding, VkSpirvResourceTypeFlagBitsEXT resource_type,
+    uint32_t heap_offset, uint32_t heap_array_stride = 0
+);
 
-    void begin();
-    void end();
+//
+// Time queries
+//
+struct Vk_Time_Keeper;
+
+struct Vk_Timer {
+    Vk_Time_Keeper* time_keeper = nullptr;
+    const char* name = nullptr;
+    uint32_t start_query; // end_query == start_query + 1
+    float duration_ms;
+    std::vector<Vk_Timer*> nested_timers;
+
+    void start();
+    void stop();
 };
 
-struct Vk_GPU_Time_Keeper {
-    static constexpr uint32_t max_time_intervals = 128;
+struct Vk_Time_Keeper {
+    static constexpr uint32_t max_timers = 128;
 
-    Vk_GPU_Time_Interval time_intervals[max_time_intervals];
-    uint32_t time_interval_count;
+    Vk_Timer timers[max_timers];
+    uint32_t timer_count = 0;
 
-    Vk_GPU_Time_Interval* allocate_time_interval();
-    void initialize_time_intervals();
-    void next_frame();
+    Vk_Timer* frame_active_timers[max_timers];
+    int frame_active_timer_count = 0;
+
+    Vk_Timer* allocate_timer(const char* name);
+    void initialize_timers();
+    void retrieve_query_results();
 };
 
-struct Vk_GPU_Time_Scope {
-    Vk_GPU_Time_Scope(Vk_GPU_Time_Interval* time_interval) {
-        this->time_interval = time_interval;
-        time_interval->begin();
+struct Vk_Time_Scope {
+    Vk_Time_Scope(Vk_Timer* timer)
+        : timer(timer)
+    {
+        timer->start();
     }
-    ~Vk_GPU_Time_Scope() {
-        time_interval->end();
+    ~Vk_Time_Scope()
+    {
+        timer->stop();
     }
-
-private:
-    Vk_GPU_Time_Interval* time_interval;
+    Vk_Timer* timer = nullptr;
 };
 
-#define VK_GPU_TIME_SCOPE(time_interval) Vk_GPU_Time_Scope gpu_time_scope##__LINE__(time_interval)
+#define VK_TIME_SCOPE(timer) Vk_Time_Scope time_scope##__LINE__(timer)
 
 //
-// GPU debug markers.
+// Debug markers
 //
-void vk_begin_gpu_marker_scope(VkCommandBuffer command_buffer, const char* name);
-void vk_end_gpu_marker_scope(VkCommandBuffer command_buffer);
-void vk_write_gpu_marker(VkCommandBuffer command_buffer, const char* name);
+void vk_begin_marker(VkCommandBuffer command_buffer, const char* name);
+void vk_end_marker(VkCommandBuffer command_buffer);
+void vk_write_marker(VkCommandBuffer command_buffer, const char* name);
 
-struct Vk_GPU_Marker_Scope {
-    Vk_GPU_Marker_Scope(VkCommandBuffer command_buffer, const char* name) {
+struct Vk_Marker_Scope {
+    Vk_Marker_Scope(VkCommandBuffer command_buffer, const char* name) {
         this->command_buffer = command_buffer;
-        vk_begin_gpu_marker_scope(command_buffer, name);
+        vk_begin_marker(command_buffer, name);
     }
-    ~Vk_GPU_Marker_Scope() {
-        vk_end_gpu_marker_scope(command_buffer);
+    ~Vk_Marker_Scope() {
+        vk_end_marker(command_buffer);
     }
 
 private:
     VkCommandBuffer command_buffer;
 };
 
-#define VK_GPU_MARKER_SCOPE(command_buffer, name) GPU_Marker_Scope gpu_marker_scope##__LINE__(command_buffer, name)
+#define VK_MARKER_SCOPE(command_buffer, name) Vk_Marker_Scope marker_scope##__LINE__(command_buffer, name)

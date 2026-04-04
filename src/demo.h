@@ -31,10 +31,8 @@ private:
     double sim_time = 0;
     Vector3 camera_pos = Vector3(0, 0.5, 3.0);
 
-    Vk_GPU_Time_Keeper time_keeper;
-    struct {
-        Vk_GPU_Time_Interval* frame;
-    } gpu_times{};
+    Vk_Time_Keeper time_keeper;
+    Vk_Timer* frame_timer = nullptr;
 
     Vk_Image depth_buffer_image;
     VkPipeline pipeline;
@@ -55,7 +53,6 @@ private:
     VkDeviceSize sampler_reserved_size = 0;
 
     Vk_Buffer uniform_buffer;
-    void* mapped_uniform_buffer = nullptr;
     Vk_Image texture;
     VkSampler sampler;
 

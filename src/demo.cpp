@@ -138,8 +138,7 @@ void Vk_Demo::initialize(GLFWwindow* window) {
     }
 
     const VkDeviceSize uniform_buffer_size = static_cast<VkDeviceSize>(sizeof(Matrix4x4));
-    uniform_buffer = vk_create_mapped_buffer(uniform_buffer_size,
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &mapped_uniform_buffer, "uniform_buffer");
+    uniform_buffer = vk_create_mapped_buffer(uniform_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "uniform_buffer");
 
     // Pipeline.
     Vk_Graphics_Pipeline_State state = get_default_graphics_pipeline_state();
@@ -299,8 +298,8 @@ void Vk_Demo::initialize(GLFWwindow* window) {
     }
 
     restore_resolution_dependent_resources();
-    gpu_times.frame = time_keeper.allocate_time_interval();
-    time_keeper.initialize_time_intervals();
+    frame_timer = time_keeper.allocate_timer("frame");
+    time_keeper.initialize_timers();
 }
 
 void Vk_Demo::shutdown() {
@@ -355,7 +354,7 @@ void Vk_Demo::run_frame() {
 	Matrix3x4 view_transform = look_at_transform(camera_pos, Vector3(0), Vector3(0, 1, 0));
     Matrix3x4 model_transform = rotate_y(Matrix3x4::identity, (float)sim_time * radians(20.0f));
     Matrix4x4 model_view_proj = projection_transform * view_transform * model_transform;
-    memcpy(mapped_uniform_buffer, &model_view_proj, sizeof(model_view_proj));
+    memcpy(uniform_buffer.mapped_ptr, &model_view_proj, sizeof(model_view_proj));
 
     do_imgui();
     draw_frame();
@@ -363,9 +362,9 @@ void Vk_Demo::run_frame() {
 
 void Vk_Demo::draw_frame() {
     vk_begin_frame();
-    vk_begin_gpu_marker_scope(vk.command_buffer, "draw_frame");
-    time_keeper.next_frame();
-    gpu_times.frame->begin();
+    vk_begin_marker(vk.command_buffer, "draw_frame");
+    time_keeper.retrieve_query_results();
+    frame_timer->start();
 
     VkBindHeapInfoEXT resource_heap_info{ VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT };
     resource_heap_info.heapRange.address = resource_descriptor_heap.device_address;
@@ -441,8 +440,8 @@ void Vk_Demo::draw_frame() {
         VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE,
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    gpu_times.frame->end();
-    vk_end_gpu_marker_scope(vk.command_buffer);
+    frame_timer->stop();
+    vk_end_marker(vk.command_buffer);
     vk_end_frame();
 }
 
@@ -481,7 +480,7 @@ void Vk_Demo::do_imgui() {
             ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav))
         {
             ImGui::Text("%.1f FPS (%.3f ms/frame)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
-            ImGui::Text("Frame time: %.2f ms", gpu_times.frame->length_ms);
+            ImGui::Text("Frame time: %.2f ms", frame_timer->duration_ms);
             ImGui::Separator();
             ImGui::Spacing();
             ImGui::Checkbox("Vertical sync", &vsync);

@@ -3,6 +3,9 @@
 #include <cassert>
 #include <cstring>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+
 static bool parse_command_line(int argc, char** argv) {
     bool found_unknown_option = false;
     for (int i = 1; i < argc; i++) {
