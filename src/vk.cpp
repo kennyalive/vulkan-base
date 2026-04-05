@@ -12,6 +12,9 @@ const char* vk_result_to_string(VkResult result) { return string_VkResult(result
 
 constexpr uint32_t max_timestamp_queries = 64;
 
+// Workaround for static_assert(false). It should be used like this: static_assert(vk_dependent_false_v<T>)
+template<typename> constexpr bool vk_dependent_false_v = false;
+
 //
 // Vk_Instance is a container that stores common Vulkan resources like vulkan instance,
 // device, command pool, swapchain, etc.
@@ -784,21 +787,6 @@ VkShaderModule vk_load_spirv(const std::string& spirv_file)
     return shader_module;
 }
 
-VkPipelineLayout vk_create_pipeline_layout(std::initializer_list<VkDescriptorSetLayout> set_layouts,
-    std::initializer_list<VkPushConstantRange> push_constant_ranges, const char* name)
-{
-    VkPipelineLayoutCreateInfo create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-    create_info.setLayoutCount = (uint32_t)set_layouts.size();
-    create_info.pSetLayouts = set_layouts.begin();
-    create_info.pushConstantRangeCount = (uint32_t)push_constant_ranges.size();
-    create_info.pPushConstantRanges = push_constant_ranges.begin();
-
-    VkPipelineLayout pipeline_layout{};
-    VK_CHECK(vkCreatePipelineLayout(vk.device, &create_info, nullptr, &pipeline_layout));
-    vk_set_debug_name(pipeline_layout, name);
-    return pipeline_layout;
-}
-
 Vk_Graphics_Pipeline_State get_default_graphics_pipeline_state()
 {
     Vk_Graphics_Pipeline_State state;
@@ -964,23 +952,6 @@ VkPipeline vk_create_compute_pipeline(VkShaderModule compute_shader,
     return pipeline;
 }
 
-VkPipeline vk_create_compute_pipeline(VkShaderModule compute_shader, VkPipelineLayout pipeline_layout, const char* name)
-{
-    VkPipelineShaderStageCreateInfo compute_stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-    compute_stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    compute_stage.module = compute_shader;
-    compute_stage.pName = "main";
-
-    VkComputePipelineCreateInfo create_info{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
-    create_info.stage = compute_stage;
-    create_info.layout = pipeline_layout;
-
-    VkPipeline pipeline{};
-    VK_CHECK(vkCreateComputePipelines(vk.device, VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline));
-    vk_set_debug_name(pipeline, name);
-    return pipeline;
-}
-
 void vk_begin_frame()
 {
     VK_CHECK(vkWaitForFences(vk.device, 1, &vk.frame_fence[vk.frame_index], VK_FALSE, std::numeric_limits<uint64_t>::max()));
@@ -1118,16 +1089,76 @@ uint32_t vk_allocate_timestamp_queries(uint32_t count)
     return first_query;
 }
 
-void set_debug_name_impl(VkObjectType object_type, uint64_t object_handle, const char* name)
+//
+// Debug names
+//
+template <typename Vk_Object_Type>
+void vk_set_debug_name(Vk_Object_Type object, const char* name)
 {
+    VkObjectType object_type;
+
+#define IF_TYPE_THEN_ENUM(vk_type, vk_object_type_enum) \
+    if constexpr (std::is_same_v<Vk_Object_Type, vk_type>) object_type = vk_object_type_enum;
+
+    IF_TYPE_THEN_ENUM(VkInstance, VK_OBJECT_TYPE_INSTANCE)
+    else IF_TYPE_THEN_ENUM(VkPhysicalDevice, VK_OBJECT_TYPE_PHYSICAL_DEVICE)
+    else IF_TYPE_THEN_ENUM(VkDevice, VK_OBJECT_TYPE_DEVICE)
+    else IF_TYPE_THEN_ENUM(VkQueue, VK_OBJECT_TYPE_QUEUE)
+    else IF_TYPE_THEN_ENUM(VkSemaphore, VK_OBJECT_TYPE_SEMAPHORE)
+    else IF_TYPE_THEN_ENUM(VkCommandBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER)
+    else IF_TYPE_THEN_ENUM(VkFence, VK_OBJECT_TYPE_FENCE)
+    else IF_TYPE_THEN_ENUM(VkDeviceMemory, VK_OBJECT_TYPE_DEVICE_MEMORY)
+    else IF_TYPE_THEN_ENUM(VkBuffer, VK_OBJECT_TYPE_BUFFER)
+    else IF_TYPE_THEN_ENUM(VkImage, VK_OBJECT_TYPE_IMAGE)
+    else IF_TYPE_THEN_ENUM(VkEvent, VK_OBJECT_TYPE_EVENT)
+    else IF_TYPE_THEN_ENUM(VkQueryPool, VK_OBJECT_TYPE_QUERY_POOL)
+    else IF_TYPE_THEN_ENUM(VkBufferView, VK_OBJECT_TYPE_BUFFER_VIEW)
+    else IF_TYPE_THEN_ENUM(VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
+    else IF_TYPE_THEN_ENUM(VkShaderModule, VK_OBJECT_TYPE_SHADER_MODULE)
+    else IF_TYPE_THEN_ENUM(VkPipelineCache, VK_OBJECT_TYPE_PIPELINE_CACHE)
+    else IF_TYPE_THEN_ENUM(VkPipeline, VK_OBJECT_TYPE_PIPELINE)
+    else IF_TYPE_THEN_ENUM(VkSampler, VK_OBJECT_TYPE_SAMPLER)
+    else IF_TYPE_THEN_ENUM(VkDescriptorPool, VK_OBJECT_TYPE_DESCRIPTOR_POOL)
+    else IF_TYPE_THEN_ENUM(VkCommandPool, VK_OBJECT_TYPE_COMMAND_POOL)
+    else IF_TYPE_THEN_ENUM(VkSurfaceKHR, VK_OBJECT_TYPE_SURFACE_KHR)
+    else IF_TYPE_THEN_ENUM(VkSwapchainKHR, VK_OBJECT_TYPE_SWAPCHAIN_KHR)
+    else IF_TYPE_THEN_ENUM(VkAccelerationStructureKHR, VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR)
+    else static_assert(vk_dependent_false_v<Vk_Object_Type>, "Unknown Vulkan object type");
+#undef IF_TYPE_THEN_ENUM
     if (name) {
-        VkDebugUtilsObjectNameInfoEXT name_info { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        VkDebugUtilsObjectNameInfoEXT name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
         name_info.objectType = object_type;
-        name_info.objectHandle = object_handle;
+        name_info.objectHandle = (uint64_t)object;
         name_info.pObjectName = name;
         VK_CHECK(vkSetDebugUtilsObjectNameEXT(vk.device, &name_info));
     }
 }
+
+#define SET_NAME_SPECIALIZATION(type) template void vk_set_debug_name<type>(type, const char*);
+SET_NAME_SPECIALIZATION(VkPhysicalDevice)
+SET_NAME_SPECIALIZATION(VkDevice)
+SET_NAME_SPECIALIZATION(VkQueue)
+SET_NAME_SPECIALIZATION(VkSemaphore)
+SET_NAME_SPECIALIZATION(VkCommandBuffer)
+SET_NAME_SPECIALIZATION(VkFence)
+SET_NAME_SPECIALIZATION(VkDeviceMemory)
+SET_NAME_SPECIALIZATION(VkBuffer)
+SET_NAME_SPECIALIZATION(VkImage)
+SET_NAME_SPECIALIZATION(VkEvent)
+SET_NAME_SPECIALIZATION(VkQueryPool)
+SET_NAME_SPECIALIZATION(VkBufferView)
+SET_NAME_SPECIALIZATION(VkImageView)
+SET_NAME_SPECIALIZATION(VkShaderModule)
+SET_NAME_SPECIALIZATION(VkPipelineCache)
+SET_NAME_SPECIALIZATION(VkPipeline)
+SET_NAME_SPECIALIZATION(VkSampler)
+SET_NAME_SPECIALIZATION(VkDescriptorPool)
+SET_NAME_SPECIALIZATION(VkCommandPool)
+SET_NAME_SPECIALIZATION(VkSurfaceKHR)
+SET_NAME_SPECIALIZATION(VkSwapchainKHR)
+SET_NAME_SPECIALIZATION(VkAccelerationStructureKHR)
+#undef SET_NAME_SPECIALIZATION
+
 
 //*****************************************************************************
 //
